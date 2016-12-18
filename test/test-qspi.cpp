@@ -82,6 +82,27 @@ test_qspi (void)
 
   do
     {
+      // read memory parameters
+      if (winbond.read_JEDEC_ID () == false)
+	{
+	  trace_printf ("Failed read the memory parameters\n");
+	}
+      else
+	{
+	  uint8_t manufacturer_ID, memory_type, memory_capacity;
+	  if (winbond.get_ID_data (manufacturer_ID, memory_type,
+				   memory_capacity) == true)
+	    {
+	      trace_printf ("Manufacturer: 0x%02x, type: 0x%02x, capacity: 0x%02x\n",
+			    manufacturer_ID, memory_type, memory_capacity);
+	    }
+	  else
+	    {
+	      trace_printf ("Invalid memory info\n");
+	    }
+	}
+      break;
+
       // switch qspi flash to quad mode
       if (winbond.mode_quad () == false)
 	{

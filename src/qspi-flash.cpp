@@ -25,6 +25,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  *
  * Created on: 9 Oct 2016 (LNP)
+ *
  * Version: 0.1, 12 Dec 2016
  */
 
@@ -47,6 +48,57 @@ qspi::qspi (QSPI_HandleTypeDef* hqspi)
 {
   trace::printf ("%s(%p) @%p\n", __func__, hqspi, this);
   hqspi_ = hqspi;
+}
+
+/**
+ * @brief  Read the memory parameters (manufacturer, type and capacity).
+ * @return true if successful, false otherwise.
+ */
+bool
+qspi::read_JEDEC_ID (void)
+{
+  bool result = false;
+  uint8_t buff[3];
+  QSPI_CommandTypeDef sCommand;
+
+  if (mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
+    {
+      // Read command settings
+      sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
+      sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+      sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
+      sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+      sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
+      sCommand.InstructionMode = QSPI_INSTRUCTION_1_LINE;
+      sCommand.AddressMode = QSPI_ADDRESS_NONE;
+      sCommand.DataMode = QSPI_DATA_1_LINE;
+      sCommand.DummyCycles = 0;
+      sCommand.NbData = 3;
+      sCommand.Instruction = JEDEC_ID;
+
+      HAL_QSPI_Abort (hqspi_);
+
+      // Initiate read and wait for the event
+      if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
+	{
+	  if (HAL_QSPI_Receive_IT (hqspi_, buff) == HAL_OK)
+	    {
+	      if (semaphore_.timed_wait (QSPI_TIMEOUT) == rtos::result::ok)
+		{
+		  manufacturer_ID_ = buff[0];
+		  memory_type_ = buff[1];
+		  memory_capacity_ = buff[2];
+		  result = true;
+		}
+	    }
+	}
+      if (result == false)
+	{
+	  HAL_QSPI_Abort (hqspi_);
+	}
+      mutex_.unlock ();
+    }
+  return result;
 }
 
 /**
@@ -388,6 +440,9 @@ qspi::erase (uint32_t address, uint8_t which)
   return result;
 }
 
+/**
+ * @brief  QSPI peripheral interrupt call-back.
+ */
 void
 qspi::cb_event (void)
 {

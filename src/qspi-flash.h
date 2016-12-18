@@ -25,6 +25,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  *
  * Created on: 9 Oct 2016 (LNP)
+ *
  * Version: 0.1, 12 Dec 2016
  */
 
@@ -42,6 +43,23 @@ public:
   qspi (QSPI_HandleTypeDef* hqspi);
 
   ~qspi (void) {};
+
+  bool
+  read_JEDEC_ID (void);
+
+  bool
+  get_ID_data (uint8_t& manufacturer_ID, uint8_t& memory_type,
+	       uint8_t& memory_capacity)
+  {
+    if (manufacturer_ID_ && memory_type_ && memory_capacity_)
+      {
+	manufacturer_ID = manufacturer_ID_;
+	memory_type = memory_type_;
+	memory_capacity = memory_capacity_;
+	return true;
+      }
+    return false;
+  }
 
   bool
   mode_quad (void);
@@ -105,6 +123,10 @@ private:
 
   bool
   page_write (uint32_t address, uint8_t* buff, size_t count);
+
+  uint8_t manufacturer_ID_= 0;
+  uint8_t memory_type_ = 0;
+  uint8_t memory_capacity_ = 0;
 
   QSPI_HandleTypeDef* hqspi_;
   os::rtos::semaphore_binary semaphore_
