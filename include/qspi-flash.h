@@ -26,7 +26,7 @@
  *
  * Created on: 9 Oct 2016 (LNP)
  *
- * Version: 0.1, 12 Dec 2016
+ * Version: 0.2, 31 Dec 2016
  */
 
 #ifndef QSPI_FLASH_H_
@@ -37,35 +37,32 @@
 
 #if defined (__cplusplus)
 
+#define QSPI_TIMEOUT 100	// all timeouts are in # of uOS++ ticks
+#define QSPI_ERASE_TIMEOUT 2000
+#define QSPI_CHIP_ERASE_TIMEOUT 200000
+
+class qspi_impl;
+
+
 class qspi
 {
 public:
   qspi (QSPI_HandleTypeDef* hqspi);
 
-  ~qspi (void) {};
+  ~qspi () = default;
 
   bool
   read_JEDEC_ID (void);
 
   bool
   get_ID_data (uint8_t& manufacturer_ID, uint8_t& memory_type,
-	       uint8_t& memory_capacity)
-  {
-    if (manufacturer_ID_ && memory_type_ && memory_capacity_)
-      {
-	manufacturer_ID = manufacturer_ID_;
-	memory_type = memory_type_;
-	memory_capacity = memory_capacity_;
-	return true;
-      }
-    return false;
-  }
+	       uint8_t& memory_capacity);
 
   bool
-  mode_quad (void);
+  mode_quad ();
 
   bool
-  memory_mapped (void);
+  memory_mapped ();
 
   bool
   read (uint32_t address, uint8_t* buff, size_t count);
@@ -88,45 +85,36 @@ public:
   void
   cb_event (void);
 
-private:
+  friend class qspi_winbond;
 
-  // Winbond W25Q128FV command set (only a subset)
+protected:
+  bool
+  page_write (uint32_t address, uint8_t* buff, size_t count);
+
+  // Standard (common) command set
+  static constexpr uint8_t JEDEC_ID = 0x9F;
+
   static constexpr uint8_t WRITE_ENABLE = 0x06;
-  static constexpr uint8_t VOLATILE_SR_WRITE_ENABLE = 0x50;
   static constexpr uint8_t WRITE_DISABLE = 0x04;
 
-  static constexpr uint8_t READ_STATUS_REGISTER_1 = 0x05;
-  static constexpr uint8_t WRITE_STATUS_REGISTER_1 = 0x01;
-  static constexpr uint8_t READ_STATUS_REGISTER_2 = 0x35;
-  static constexpr uint8_t WRITE_STATUS_REGISTER_2 = 0x31;
-  static constexpr uint8_t READ_STATUS_REGISTER_3 = 0x15;
-  static constexpr uint8_t WRITE_STATUS_REGISTER_3 = 0x11;
+  static constexpr uint8_t READ_STATUS_REGISTER = 0x05;
+  static constexpr uint8_t WRITE_STATUS_REGISTER = 0x01;
 
+  static constexpr uint8_t SECTOR_ERASE = 0x20;
+  static constexpr uint8_t BLOCK_32K_ERASE = 0x52;
+  static constexpr uint8_t BLOCK_64K_ERASE = 0xD8;
   static constexpr uint8_t CHIP_ERASE = 0xC7;
+
   static constexpr uint8_t POWER_DOWN = 0xB9;
-  static constexpr uint8_t JEDEC_ID = 0x9F;
   static constexpr uint8_t RESET_DEVICE = 0x99;
 
   static constexpr uint8_t PAGE_PROGRAM = 0x02;
   static constexpr uint8_t QUAD_PAGE_PROGRAM = 0x32;
-  static constexpr uint8_t SECTOR_ERASE = 0x20;
-  static constexpr uint8_t BLOCK_32K_ERASE = 0x52;
-  static constexpr uint8_t BLOCK_64K_ERASE = 0xD8;
 
   static constexpr uint8_t READ_DATA = 0x03;
   static constexpr uint8_t FAST_READ_DATA = 0x0B;
   static constexpr uint8_t FAST_READ_QUAD_OUT = 0x6B;
   static constexpr uint8_t FAST_READ_QUAD_IN_OUT = 0xEB;
-
-  bool
-  erase (uint32_t address, uint8_t which);
-
-  bool
-  page_write (uint32_t address, uint8_t* buff, size_t count);
-
-  uint8_t manufacturer_ID_= 0;
-  uint8_t memory_type_ = 0;
-  uint8_t memory_capacity_ = 0;
 
   QSPI_HandleTypeDef* hqspi_;
   os::rtos::semaphore_binary semaphore_
@@ -134,7 +122,68 @@ private:
   os::rtos::mutex mutex_
     { "qspi" };
 
+private:
+  bool
+  erase (uint32_t address, uint8_t which);
+
+  class qspi_impl* pimpl = nullptr;
+
+  uint8_t manufacturer_ID_ = 0;
+  uint8_t memory_type_ = 0;
+  uint8_t memory_capacity_ = 0;
+  bool valid_mem_ID = false;
+
 };
+
+class qspi_impl
+{
+public:
+  qspi_impl ()
+  {
+  }
+
+  virtual
+  ~qspi_impl () = default;
+
+  virtual bool
+  mode_quad (qspi* pq) = 0;
+
+  virtual bool
+  memory_mapped (qspi* pq) = 0;
+
+  virtual bool
+  read (qspi* pq, uint32_t address, uint8_t* buff, size_t count) = 0;
+
+  virtual bool
+  page_write (qspi* pq, uint32_t address, uint8_t* buff, size_t count) = 0;
+
+};
+
+inline bool
+qspi::mode_quad ()
+{
+  return (pimpl == nullptr) ? false : pimpl->mode_quad (this);
+}
+
+inline bool
+qspi::memory_mapped ()
+{
+  return (pimpl == nullptr) ? false : pimpl->memory_mapped (this);
+}
+
+inline bool
+qspi::read (uint32_t address, uint8_t* buff, size_t count)
+{
+  return (pimpl == nullptr) ? false : pimpl->read (this, address, buff, count);
+}
+
+inline bool
+qspi::page_write (uint32_t address, uint8_t* buff, size_t count)
+{
+  return
+      (pimpl == nullptr) ?
+	  false : pimpl->page_write (this, address, buff, count);
+}
 
 inline bool
 qspi::sector_erase (uint32_t address)

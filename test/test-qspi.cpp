@@ -45,7 +45,7 @@ extern "C"
   QSPI_HandleTypeDef hqspi;
 }
 
-qspi winbond
+qspi flash
   { &hqspi };
 
 /**
@@ -57,7 +57,7 @@ void
 HAL_QSPI_StatusMatchCallback (
     QSPI_HandleTypeDef *hqspi __attribute__ ((unused)))
 {
-  winbond.cb_event ();
+  flash.cb_event ();
 }
 
 /**
@@ -68,7 +68,7 @@ HAL_QSPI_StatusMatchCallback (
 void
 HAL_QSPI_RxCpltCallback (QSPI_HandleTypeDef *hqspi __attribute__ ((unused)))
 {
-  winbond.cb_event ();
+  flash.cb_event ();
 }
 
 /**
@@ -83,14 +83,14 @@ test_qspi (void)
   do
     {
       // read memory parameters
-      if (winbond.read_JEDEC_ID () == false)
+      if (flash.read_JEDEC_ID () == false)
 	{
 	  trace_printf ("Failed read the memory parameters\n");
 	}
       else
 	{
 	  uint8_t manufacturer_ID, memory_type, memory_capacity;
-	  if (winbond.get_ID_data (manufacturer_ID, memory_type,
+	  if (flash.get_ID_data (manufacturer_ID, memory_type,
 				   memory_capacity) == true)
 	    {
 	      trace_printf ("Manufacturer: 0x%02x, type: 0x%02x, capacity: 0x%02x\n",
@@ -101,21 +101,22 @@ test_qspi (void)
 	      trace_printf ("Invalid memory info\n");
 	    }
 	}
-      break;
+//      break;
 
       // switch qspi flash to quad mode
-      if (winbond.mode_quad () == false)
+      if (flash.mode_quad () == false)
 	{
 	  trace_printf ("Failed to switch the flash to quad mode\n");
 	  break;
 	}
 
       // switch mode to memory mapped
-      if (winbond.memory_mapped () == false)
+      if (flash.memory_mapped () == false)
 	{
 	  trace_printf ("Failed to switch the flash to memory mapped mode\n");
 	  break;
 	}
+//	break;
 
       // check if flash is erased
       for (i = 0; i < FLASH_SIZE; i++, pf++)
@@ -127,7 +128,7 @@ test_qspi (void)
 	{
 	  trace_printf (
 	      "Flash not empty, trying to erase (it will take some time...)\n");
-	  if (winbond.chip_erase () == false)
+	  if (flash.chip_erase () == false)
 	    {
 	      trace_printf ("Failed to erase flash chip\r\n");
 	      break;
@@ -150,14 +151,14 @@ test_qspi (void)
 		pw[i] = (uint8_t) random ();
 
 	      // write block
-	      if (winbond.write (j * 4096, pw, 4096) == false)
+	      if (flash.write (j * 4096, pw, 4096) == false)
 		{
 		  trace_printf ("Block write error\n");
 		  break;
 		}
 
 	      // read block
-	      else if (winbond.read (j * 4096, pr, 4096) == false)
+	      else if (flash.read (j * 4096, pr, 4096) == false)
 		{
 		  trace_printf ("Block read error\n");
 		  break;
