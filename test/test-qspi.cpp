@@ -134,6 +134,7 @@ test_qspi (void)
 	      break;
 	    }
 	}
+//      break;
 
       // get two RAM buffers
       uint8_t *pw = reinterpret_cast<uint8_t*> (malloc (4096));

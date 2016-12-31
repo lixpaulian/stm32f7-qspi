@@ -26,7 +26,7 @@
  *
  * Created on: 9 Oct 2016 (LNP)
  *
- * Version: 0.2, 31 Dec 2016
+ * Version: 0.3, 31 Dec 2016
  */
 
 #ifndef QSPI_FLASH_H_
@@ -37,12 +37,12 @@
 
 #if defined (__cplusplus)
 
-#define QSPI_TIMEOUT 100	// all timeouts are in # of uOS++ ticks
+// All timeouts are in # of uOS++ ticks (normally 1 ms)
+#define QSPI_TIMEOUT 100
 #define QSPI_ERASE_TIMEOUT 2000
 #define QSPI_CHIP_ERASE_TIMEOUT 200000
 
 class qspi_impl;
-
 
 class qspi
 {
@@ -86,12 +86,13 @@ public:
   cb_event (void);
 
   friend class qspi_winbond;
+  friend class qspi_micron;
 
 protected:
   bool
   page_write (uint32_t address, uint8_t* buff, size_t count);
 
-  // Standard (common) command set
+  // Standard command sub-set (common for all flash chips)
   static constexpr uint8_t JEDEC_ID = 0x9F;
 
   static constexpr uint8_t WRITE_ENABLE = 0x06;
@@ -105,7 +106,7 @@ protected:
   static constexpr uint8_t BLOCK_64K_ERASE = 0xD8;
   static constexpr uint8_t CHIP_ERASE = 0xC7;
 
-  static constexpr uint8_t POWER_DOWN = 0xB9;
+  static constexpr uint8_t RESET_ENABLE = 0x66;
   static constexpr uint8_t RESET_DEVICE = 0x99;
 
   static constexpr uint8_t PAGE_PROGRAM = 0x02;
@@ -154,9 +155,6 @@ public:
   virtual bool
   read (qspi* pq, uint32_t address, uint8_t* buff, size_t count) = 0;
 
-  virtual bool
-  page_write (qspi* pq, uint32_t address, uint8_t* buff, size_t count) = 0;
-
 };
 
 inline bool
@@ -175,14 +173,6 @@ inline bool
 qspi::read (uint32_t address, uint8_t* buff, size_t count)
 {
   return (pimpl == nullptr) ? false : pimpl->read (this, address, buff, count);
-}
-
-inline bool
-qspi::page_write (uint32_t address, uint8_t* buff, size_t count)
-{
-  return
-      (pimpl == nullptr) ?
-	  false : pimpl->page_write (this, address, buff, count);
 }
 
 inline bool

@@ -1,5 +1,5 @@
 /*
- * qspi-winbond.cpp
+ * qspi-micron.cpp
  *
  * Copyright (c) 2016 Lix N. Paulian (lix@paulian.net)
  *
@@ -24,19 +24,18 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
  *
- * Created on: 29 Dec 2016 (LNP)
+ * Created on: 31 Dec 2016 (LNP)
  *
  * Version: 0.3, 31 Dec 2016
  */
 
 /*
  * This file implements the specific basic low level functions to control
- * Winbond QSPI flash devices.
+ * Micron (formerly ST) QSPI flash devices.
  */
 
 
-
-#include "qspi-winbond.h"
+#include "qspi-micron.h"
 
 #include <cmsis-plus/rtos/os.h>
 #include <cmsis-plus/diag/trace.h>
@@ -50,7 +49,7 @@ using namespace os;
  * @return true if successful, false otherwise.
  */
 bool
-qspi_winbond::mode_quad (qspi* pq)
+qspi_micron::mode_quad (qspi* pq)
 {
   QSPI_CommandTypeDef sCommand;
   bool result = false;
@@ -70,28 +69,28 @@ qspi_winbond::mode_quad (qspi* pq)
       sCommand.DummyCycles = 0;
       sCommand.NbData = 1;
 
-      // Read status register 2
-      sCommand.Instruction = READ_STATUS_REGISTER_2;
+      // Read enhanced volatile register
+      sCommand.Instruction = READ_ENH_VOLATILE_STATUS_REGISTER;
       if (HAL_QSPI_Command (pq->hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
 	{
 	  if (HAL_QSPI_Receive (pq->hqspi_, &datareg, QSPI_TIMEOUT) == HAL_OK)
 	    {
-	      if ((datareg & 2) == 0)
+	      if ((datareg & 0x80) == 0)
 		{
-		  // QE bit not set
-		  // Enable volatile write
+		  // Quad protocol bit not set
+		  // Enable write
 		  sCommand.DataMode = QSPI_DATA_NONE;
-		  sCommand.Instruction = VOLATILE_SR_WRITE_ENABLE;
+		  sCommand.Instruction = qspi::WRITE_ENABLE;
 		  if (HAL_QSPI_Command (pq->hqspi_, &sCommand, QSPI_TIMEOUT)
 		      == HAL_OK)
 		    {
-		      // Write back status register 2 (enable QE)
+		      // Write back enhanced volatile register (enable Quad)
 		      sCommand.DataMode = QSPI_DATA_1_LINE;
-		      sCommand.Instruction = WRITE_STATUS_REGISTER_2;
+		      sCommand.Instruction = WRITE_ENH_VOLATILE_STATUS_REGISTER;
 		      if (HAL_QSPI_Command (pq->hqspi_, &sCommand, QSPI_TIMEOUT)
 			  == HAL_OK)
 			{
-			  datareg |= 2;
+			  datareg |= 0x80;
 			  if (HAL_QSPI_Transmit (pq->hqspi_, &datareg, QSPI_TIMEOUT)
 			      == HAL_OK)
 			    {
@@ -117,7 +116,7 @@ qspi_winbond::mode_quad (qspi* pq)
  * @return true if successful, false otherwise.
  */
 bool
-qspi_winbond::memory_mapped (qspi* pq)
+qspi_micron::memory_mapped (qspi* pq)
 {
   bool result = false;
   QSPI_CommandTypeDef sCommand;
@@ -136,7 +135,7 @@ qspi_winbond::memory_mapped (qspi* pq)
       sCommand.InstructionMode = QSPI_INSTRUCTION_1_LINE;
       sCommand.AddressMode = QSPI_ADDRESS_1_LINE;
       sCommand.DataMode = QSPI_DATA_4_LINES;
-      sCommand.DummyCycles = 6;	/* it's not yet clear why 6 and not 8 dummies */
+      sCommand.DummyCycles = 10;
       sCommand.Instruction = qspi::FAST_READ_QUAD_OUT;
 
       sMemMappedCfg.TimeOutActivation = QSPI_TIMEOUT_COUNTER_DISABLE;
@@ -158,7 +157,7 @@ qspi_winbond::memory_mapped (qspi* pq)
  * @return true if successful, false otherwise.
  */
 bool
-qspi_winbond::read (qspi* pq, uint32_t address, uint8_t* buff, size_t count)
+qspi_micron::read (qspi* pq, uint32_t address, uint8_t* buff, size_t count)
 {
   bool result = false;
   QSPI_CommandTypeDef sCommand;
@@ -175,7 +174,7 @@ qspi_winbond::read (qspi* pq, uint32_t address, uint8_t* buff, size_t count)
       sCommand.InstructionMode = QSPI_INSTRUCTION_1_LINE;
       sCommand.AddressMode = QSPI_ADDRESS_1_LINE;
       sCommand.DataMode = QSPI_DATA_4_LINES;
-      sCommand.DummyCycles = 6; /* it's not yet clear why 6 and not 8 dummies */
+      sCommand.DummyCycles = 10;
       sCommand.Address = address;
       sCommand.NbData = count;
       sCommand.Instruction = qspi::FAST_READ_QUAD_OUT;
@@ -201,3 +200,6 @@ qspi_winbond::read (qspi* pq, uint32_t address, uint8_t* buff, size_t count)
     }
   return result;
 }
+
+
+

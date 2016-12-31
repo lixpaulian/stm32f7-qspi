@@ -26,11 +26,11 @@
  *
  * Created on: 9 Oct 2016 (LNP)
  *
- * Version: 0.2, 31 Dec 2016
+ * Version: 0.3, 31 Dec 2016
  */
 
 /*
- * This file implements the basic low level functions to control
+ * This file implements the common basic low level functions to control
  * a QSPI flash device.
  */
 
@@ -112,7 +112,10 @@ qspi::get_ID_data (uint8_t& manufacturer_ID, uint8_t& memory_type,
 	manufacturer_ID = manufacturer_ID_;
 	memory_type = memory_type_;
 	memory_capacity = memory_capacity_;
-	pimpl = new qspi_winbond {};
+	if (manufacturer_ID == 0x20)
+	  pimpl = new qspi_winbond {};	// Micron/ST
+	else if (manufacturer_ID == 0xEF)
+	  pimpl = new qspi_winbond {};	// Winbond
 	result = true;
     }
   return result;
@@ -153,6 +156,78 @@ qspi::write (uint32_t address, uint8_t* buff, size_t count)
     }
   while (count);
 
+  return result;
+}
+
+/**
+ * @brief  Write a page of data to the flash (max. 255 bytes).
+ * @param  address: address of the page in flash.
+ * @param  buff: buffer of the source data.
+ * @param  count: number of bytes to be written (max 255).
+ * @return true if successful, false otherwise.
+ */
+bool
+qspi::page_write (uint32_t address, uint8_t* buff, size_t count)
+{
+  bool result = false;
+  QSPI_CommandTypeDef sCommand;
+  QSPI_AutoPollingTypeDef sConfig;
+
+  if (mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
+    {
+      // Initial command settings
+      sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
+      sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+      sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
+      sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+      sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
+      sCommand.InstructionMode = QSPI_INSTRUCTION_1_LINE;
+      sCommand.AddressMode = QSPI_ADDRESS_NONE;
+      sCommand.DataMode = QSPI_DATA_NONE;
+      sCommand.DummyCycles = 0;
+
+      // Enable write
+      sCommand.Instruction = WRITE_ENABLE;
+      if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
+	{
+	  // Initiate write
+	  sCommand.Instruction = QUAD_PAGE_PROGRAM;
+	  sCommand.AddressMode = QSPI_ADDRESS_1_LINE;
+	  sCommand.DataMode = QSPI_DATA_4_LINES;
+	  sCommand.Address = address;
+	  sCommand.NbData = count;
+	  if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
+	    {
+	      if (HAL_QSPI_Transmit (hqspi_, buff, QSPI_TIMEOUT) == HAL_OK)
+		{
+		  // Set auto-polling and wait for the event
+		  sCommand.AddressMode = QSPI_ADDRESS_NONE;
+		  sCommand.DataMode = QSPI_DATA_1_LINE;
+		  sCommand.Instruction = READ_STATUS_REGISTER;
+		  sConfig.Match = 0;
+		  sConfig.Mask = 1;
+		  sConfig.MatchMode = QSPI_MATCH_MODE_AND;
+		  sConfig.StatusBytesSize = 1;
+		  sConfig.Interval = 0x10;
+		  sConfig.AutomaticStop = QSPI_AUTOMATIC_STOP_ENABLE;
+		  if (HAL_QSPI_AutoPolling_IT (hqspi_, &sCommand, &sConfig)
+		      == HAL_OK)
+		    {
+		      if (semaphore_.timed_wait (QSPI_TIMEOUT)
+			  == rtos::result::ok)
+			{
+			  result = true;
+			}
+		    }
+		}
+	    }
+	}
+      if (result == false)
+	{
+	  HAL_QSPI_Abort (hqspi_);
+	}
+      mutex_.unlock ();
+    }
   return result;
 }
 

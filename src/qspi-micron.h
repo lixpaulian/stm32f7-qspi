@@ -1,5 +1,5 @@
 /*
- * qspi-winbond.h
+ * qspi-micron.h
  *
  * Copyright (c) 2016 Lix N. Paulian (lix@paulian.net)
  *
@@ -24,19 +24,19 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
  *
- * Created on: 29 Dec 2016 (LNP)
+ * Created on: 31 Dec 2016 (LNP)
  *
  * Version: 0.3, 31 Dec 2016
  */
 
-#ifndef QSPI_WINBOND_H_
-#define QSPI_WINBOND_H_
+#ifndef QSPI_MICRON_H_
+#define QSPI_MICRON_H_
 
 #include "qspi-flash.h"
 
 #if defined (__cplusplus)
 
-class qspi_winbond : public qspi_impl
+class qspi_micron : public qspi_impl
 {
 
 public:
@@ -51,17 +51,14 @@ public:
   read (qspi* pq, uint32_t address, uint8_t* buff, size_t count) override;
 
 private:
-  // Winbond specific commands
-  static constexpr uint8_t VOLATILE_SR_WRITE_ENABLE = 0x50;
-  static constexpr uint8_t READ_STATUS_REGISTER_2 = 0x35;
-  static constexpr uint8_t WRITE_STATUS_REGISTER_2 = 0x31;
-  static constexpr uint8_t READ_STATUS_REGISTER_3 = 0x15;
-  static constexpr uint8_t WRITE_STATUS_REGISTER_3 = 0x11;
-  static constexpr uint8_t POWER_DOWN = 0xB9;
-  static constexpr uint8_t RELEASE_POWER_DOWN = 0xAB;
+  // Micron/ST specific commands
+  static constexpr uint8_t READ_VOLATILE_STATUS_REGISTER = 0x85;
+  static constexpr uint8_t READ_ENH_VOLATILE_STATUS_REGISTER = 0x65;
+  static constexpr uint8_t WRITE_VOLATILE_STATUS_REGISTER = 0x81;
+  static constexpr uint8_t WRITE_ENH_VOLATILE_STATUS_REGISTER = 0x61;
 
 };
 
 #endif
 
-#endif /* QSPI_WINBOND_H_ */
+#endif /* QSPI_MICRON_H_ */
