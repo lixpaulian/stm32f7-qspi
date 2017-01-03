@@ -1,7 +1,7 @@
 /*
  * qspi-winbond.h
  *
- * Copyright (c) 2016 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2016, 2017 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -25,8 +25,6 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  *
  * Created on: 29 Dec 2016 (LNP)
- *
- * Version: 0.3, 31 Dec 2016
  */
 
 #ifndef QSPI_WINBOND_H_
@@ -42,10 +40,10 @@ class qspi_winbond : public qspi_impl
 public:
 
   virtual bool
-  mode_quad (qspi* pq) override;
+  enter_quad_mode (qspi* pq) override;
 
   virtual bool
-  memory_mapped (qspi* pq) override;
+  enter_mem_mapped (qspi* pq) override;
 
   virtual bool
   read (qspi* pq, uint32_t address, uint8_t* buff, size_t count) override;

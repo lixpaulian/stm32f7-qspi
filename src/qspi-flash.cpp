@@ -1,7 +1,7 @@
 /*
  * qspi-flash.cpp
  *
- * Copyright (c) 2016 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2016, 2017 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -25,8 +25,6 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  *
  * Created on: 9 Oct 2016 (LNP)
- *
- * Version: 0.3, 31 Dec 2016
  */
 
 /*
@@ -37,12 +35,16 @@
 #include <cmsis-plus/rtos/os.h>
 #include <cmsis-plus/diag/trace.h>
 #include "qspi-flash.h"
-
+#include "qspi-descr.h"
 #include "qspi-winbond.h"
+#include "qspi-micron.h"
 
 using namespace os;
 
-
+/**
+ * @brief Constructor.
+ * @param hqspi: HAL qspi handle.
+ */
 qspi::qspi (QSPI_HandleTypeDef* hqspi)
 {
   trace::printf ("%s(%p) @%p\n", __func__, hqspi, this);
@@ -50,7 +52,52 @@ qspi::qspi (QSPI_HandleTypeDef* hqspi)
 }
 
 /**
- * @brief  Read the memory parameters (manufacturer, type and capacity).
+ * @brief  Read the flash chip ID and initialize the internal structures accordingly.
+ * @return true if successful, false if the flash could not be identified or it is
+ * 	not supported by the driver.
+ */
+bool
+qspi::initialize (void)
+{
+  bool result = false;
+
+  if (qspi::read_JEDEC_ID ())
+    {
+      for (const qspi_manuf_t* pqm = qspi_manufacturers;
+	  pqm->manufacturer_ID != 0; pqm++)
+	{
+	  if (pqm->manufacturer_ID == manufacturer_ID_)
+	    {
+	      for (const qspi_device_t* pqd = pqm->devices; pqd->device_ID != 0;
+		  pqd++)
+		{
+		  if (pqd->device_ID == memory_type_)
+		    {
+		      pmanufacturer_ = pqm->manufacturer_name;
+		      pdevice_ = pqd;
+		      switch (manufacturer_ID_)
+			{
+			case MANUF_ID_MICRON:
+			  pimpl = new qspi_micron
+			    { };
+			  break;
+
+			case MANUF_ID_WINBOND:
+			  pimpl = new qspi_winbond
+			    { };
+			  break;
+			}
+		      result = true;
+		    }
+		}
+	    }
+	}
+    }
+  return result;
+}
+
+/**
+ * @brief  Read the memory parameters (manufacturer and type).
  * @return true if successful, false otherwise.
  */
 bool
@@ -75,8 +122,6 @@ qspi::read_JEDEC_ID (void)
       sCommand.NbData = 3;
       sCommand.Instruction = JEDEC_ID;
 
-      HAL_QSPI_Abort (hqspi_);
-
       // Initiate read and wait for the event
       if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
 	{
@@ -85,9 +130,8 @@ qspi::read_JEDEC_ID (void)
 	      if (semaphore_.timed_wait (QSPI_TIMEOUT) == rtos::result::ok)
 		{
 		  manufacturer_ID_ = buff[0];
-		  memory_type_ = buff[1];
-		  memory_capacity_ = buff[2];
-		  valid_mem_ID = true;
+		  memory_type_ = buff[1] << 8;
+		  memory_type_ += buff[2];
 		  result = true;
 		}
 	    }
@@ -97,26 +141,6 @@ qspi::read_JEDEC_ID (void)
 	  HAL_QSPI_Abort (hqspi_);
 	}
       mutex_.unlock ();
-    }
-  return result;
-}
-
-bool
-qspi::get_ID_data (uint8_t& manufacturer_ID, uint8_t& memory_type,
-	       uint8_t& memory_capacity)
-{
-  bool result = false;
-
-  if (valid_mem_ID)
-    {
-	manufacturer_ID = manufacturer_ID_;
-	memory_type = memory_type_;
-	memory_capacity = memory_capacity_;
-	if (manufacturer_ID == 0x20)
-	  pimpl = new qspi_winbond {};	// Micron/ST
-	else if (manufacturer_ID == 0xEF)
-	  pimpl = new qspi_winbond {};	// Winbond
-	result = true;
     }
   return result;
 }
@@ -133,8 +157,6 @@ qspi::write (uint32_t address, uint8_t* buff, size_t count)
 {
   bool result = true;
   size_t in_block_count;
-
-  HAL_QSPI_Abort (hqspi_);
 
   do
     {
@@ -258,8 +280,6 @@ qspi::erase (uint32_t address, uint8_t which)
       sCommand.DataMode = QSPI_DATA_NONE;
       sCommand.DummyCycles = 0;
 
-      HAL_QSPI_Abort (hqspi_);
-
       // Enable write
       sCommand.Instruction = WRITE_ENABLE;
       if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
@@ -301,6 +321,75 @@ qspi::erase (uint32_t address, uint8_t which)
       mutex_.unlock ();
     }
   return result;
+}
+
+/**
+ * @brief  Read sector.
+ * @param  sector: sector number to read from.
+ * @param  buff: buffer to receive the data from flash.
+ * @param  count: number of bytes to read (buffer should be large enough).
+ * @return true if successful, false otherwise.
+ */
+bool
+qspi::read_sector (uint32_t sector, uint8_t* buff, size_t count)
+{
+  return read (sector * pdevice_->sector_size, buff, count);
+}
+
+/**
+ * @brief  Write sector.
+ * @param  sector: sector number to write to.
+ * @param  buff: buffer containing the data to be written to flash.
+ * @param  count: number of bytes to be written.
+ * @return true if successful, false otherwise.
+ */
+bool
+qspi::write_sector (uint32_t sector, uint8_t* buff, size_t count)
+{
+  return write (sector * pdevice_->sector_size, buff, count);
+}
+
+/**
+ * @brief  Erase sector.
+ * @param  sector: sector to be erased.
+ * @return true if successful, false otherwise.
+ */
+bool
+qspi::erase_sector (uint32_t sector)
+{
+  return erase (sector * pdevice_->sector_size, SECTOR_ERASE);
+}
+
+/**
+ * @brief  Return the memory type.
+ * @return Pointer to a string representing the human readable memory type.
+ */
+const char*
+qspi::get_memory_type (void)
+{
+  return pdevice_->device_name;
+}
+
+/**
+ * @brief  Return the sector size.
+ * @return The sector size in bytes.
+ */
+size_t
+qspi::get_sector_size (void)
+{
+  return pdevice_->sector_size;
+}
+
+/**
+ * @brief  Return the sectors count.
+ * @return The sectors count.
+ */
+size_t
+qspi::get_sector_count (void)
+{
+  size_t size = pdevice_->device_ID & 0xFF;
+  size = (1 << size);
+  return size / pdevice_->sector_size;
 }
 
 /**
