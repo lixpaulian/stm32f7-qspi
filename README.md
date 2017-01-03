@@ -2,7 +2,7 @@
 This is a QSPI serial flash driver for the STM32F7xx family of controllers.
 
 ## Version
-* 0.3
+* 0.4 (3 Jan. 2017)
 
 ## License
 * MIT
@@ -16,17 +16,18 @@ The driver depends on the following software packages:
 * STM32F7xx HAL Library (https://github.com/xpacks/stm32f7-hal)
 * uOS++ (https://github.com/micro-os-plus/micro-os-plus-iii)
 
-Note that the hardware initialisations (uController clock, peripherals clocks, etc.) must be separately performed, normaly in the initialize_hardware.c file of a gnuarmeclipse project. You can do this using the MX-Cube generator from ST. You may find helpful to check the following project:
+Note that the hardware initialisations (uController clock, peripherals clocks, etc.) must be separately performed, normaly in, or called from the initialize_hardware.c file of a gnuarmeclipse project. You can do this using the MX-Cube generator from ST. You may find helpful to check the following project:
 * https://github.com/micro-os-plus/eclipse-demo-projects/tree/master/f746gdiscovery-blinky-micro-os-plus
 * https://github.com/micro-os-plus/eclipse-demo-projects/tree/master/f746gdiscovery-blinky-micro-os-plus/cube-mx which details how to integrate the Cube-MX generated code into a uOS++ based project.
 
-The driver can be easily ported to other RTOSes, as it uses only a semaphore and a mutex. It has been tested on the Winbond W25Q128FV flash, but support for other chips will be  added in the future.
+The driver can be easily ported to other RTOSes, as it uses only a semaphore and a mutex. It has been tested on the Winbond W25Q128FV and Micrel/ST MT25QL128ABA flash chips, but support for other devices will be  added in the future.
 
 ## Tests
 There is a test that must be run on a real target. Note that the test is distructive, the whole content of the flash will be lost!
 
 The test performs the following flash operations:
+* Reads-out the chip ID and initializes the internal driver structures (manufacturer, flash type, sector count and size
 * Switches the flash to memory-mapped mode; the flash is mapped at the address 0x90000000
 * Checks if the flash is erased (all FFs); if it is not, the flash will be erased
-* Generates a stream of random bytes and writes them to the flash, 4K at a time (the erase block length)
+* Generates a stream of random bytes and writes them to the flash, one sector (4 KBytes at a time).
 * Compares the values written to the original values in RAM.
