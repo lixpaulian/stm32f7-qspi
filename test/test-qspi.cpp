@@ -1,7 +1,7 @@
 /*
  * test-qspi.cpp
  *
- * Copyright (c) 2016 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2016, 2017 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -37,13 +37,14 @@
 #include <cmsis-plus/diag/trace.h>
 
 #include "qspi-flash.h"
-
-#define FLASH_SIZE (4096 * 4096) // TODO: replace with the info read-out from the flash chip
+#include "test-qspi.h"
 
 extern "C"
 {
   QSPI_HandleTypeDef hqspi;
 }
+
+using namespace os;
 
 qspi flash
   { &hqspi };
@@ -79,96 +80,129 @@ test_qspi (void)
 {
   int i;
   uint8_t *pf = (uint8_t *) 0x90000000;	// memory-mapped flash address
+  int sector_size;
+  int sector_count;
+  int total_write = 0;
+  int total_read = 0;
+
+  stopwatch sw
+    { };
 
   do
     {
       // read memory parameters
-      if (flash.read_JEDEC_ID () == false)
+      sw.start ();
+      if (flash.initialize () == false)
 	{
-	  trace_printf ("Failed read the memory parameters\n");
+	  trace::printf ("Failed read the memory parameters\n");
+	  break;
 	}
       else
 	{
-	  uint8_t manufacturer_ID, memory_type, memory_capacity;
-	  if (flash.get_ID_data (manufacturer_ID, memory_type,
-				   memory_capacity) == true)
-	    {
-	      trace_printf ("Manufacturer: 0x%02x, type: 0x%02x, capacity: 0x%02x\n",
-			    manufacturer_ID, memory_type, memory_capacity);
-	    }
-	  else
-	    {
-	      trace_printf ("Invalid memory info\n");
-	    }
+	  trace::printf ("Initialized in %.3f ms\n", sw.stop () / (float) 1000);
+
+	  sector_size = flash.get_sector_size ();
+	  sector_count = flash.get_sector_count ();
+	  uint8_t version_major, version_minor;
+
+	  flash.get_version (version_major, version_minor);
+	  trace::printf ("Driver version: %d.%d\n", version_major,
+			 version_minor);
+	  trace::printf ("Manufacturer: %s, type: %s, sector size: %d bytes, "
+			 "sector count: %d\n",
+			 flash.get_manufacturer (), flash.get_memory_type (),
+			 sector_size, sector_count);
 	}
 //      break;
 
       // switch qspi flash to quad mode
-      if (flash.mode_quad () == false)
+      sw.start ();
+      if (flash.enter_quad_mode () == false)
 	{
-	  trace_printf ("Failed to switch the flash to quad mode\n");
+	  trace::printf ("Failed to switch the flash to quad mode\n");
 	  break;
 	}
+      trace::printf ("Entered quad mode in %.3f ms\n",
+		     sw.stop () / (float) 1000);
 
       // switch mode to memory mapped
-      if (flash.memory_mapped () == false)
+      sw.start ();
+      if (flash.enter_mem_mapped () == false)
 	{
-	  trace_printf ("Failed to switch the flash to memory mapped mode\n");
+	  trace::printf ("Failed enter memory mapped mode\n");
 	  break;
 	}
-//	break;
+      trace::printf ("Entered memory mapped mode in %.3f ms\n",
+		     sw.stop () / (float) 1000);
+//      break;
 
       // check if flash is erased
-      for (i = 0; i < FLASH_SIZE; i++, pf++)
+      sw.start ();
+      for (i = 0; i < (sector_count * sector_size); i++, pf++)
 	if (*pf != 0xFF)
 	  break;
+      trace::printf ("Checked if flash is erased in %.3f ms\n",
+		     sw.stop () / (float) 1000);
+
+      if (flash.exit_mem_mapped () == false)
+	{
+	  trace::printf ("Failed to exit from memory mapped mode\n");
+	  break;
+	}
+//      break;
 
       // if not clear, erase whole flash chip
-      if (i < FLASH_SIZE)
+      if (i < (sector_count * sector_size))
 	{
-	  trace_printf (
+	  trace::printf (
 	      "Flash not empty, trying to erase (it will take some time...)\n");
-	  if (flash.chip_erase () == false)
+	  sw.start ();
+	  if (flash.erase_chip () == false)
 	    {
-	      trace_printf ("Failed to erase flash chip\r\n");
+	      trace::printf ("Failed to erase flash chip\r\n");
 	      break;
 	    }
+	  trace::printf ("Erased in %.2f s\n", sw.stop () / (float) 1000000);
 	}
 //      break;
 
       // get two RAM buffers
-      uint8_t *pw = reinterpret_cast<uint8_t*> (malloc (4096));
-      uint8_t *pr = reinterpret_cast<uint8_t*> (malloc (4096));
+      uint8_t *pw = reinterpret_cast<uint8_t*> (malloc (sector_size));
+      uint8_t *pr = reinterpret_cast<uint8_t*> (malloc (sector_size));
       int j;
 
       if (pw && pr)
 	{
 	  // generate a random block of data
 	  srand (0xBABA);
-	  for (j = 0; j < 4096; j++)
+	  for (j = 0; j < sector_size; j++)
 	    {
-	      trace_printf ("Test block #%5d\n", j);
-	      for (i = 0; i < 4096; i++)
+	      trace::printf ("Test block #%5d\n", j);
+	      for (i = 0; i < sector_size; i++)
 		pw[i] = (uint8_t) random ();
 
 	      // write block
-	      if (flash.write (j * 4096, pw, 4096) == false)
+	      sw.start ();
+	      if (flash.write_sector (j, pw, sector_size) == false)
 		{
-		  trace_printf ("Block write error\n");
+		  trace::printf ("Block write error\n");
 		  break;
 		}
+	      total_write += sw.stop ();
 
 	      // read block
-	      else if (flash.read (j * 4096, pr, 4096) == false)
+	      sw.start ();
+	      if (flash.read_sector (j, pr, sector_size) == false)
 		{
-		  trace_printf ("Block read error\n");
+		  trace::printf ("Block read error\n");
 		  break;
 		}
+	      total_read += sw.stop ();
 
 	      // compare data
-	      else if (memcmp (pw, pr, 4096) != 0)
+	      if (memcmp (pw, pr, sector_size) != 0)
 		{
-		  trace_printf ("Compare error\n");
+		  trace::printf ("Compare error\n");
 		  break;
 		}
 	    }
@@ -176,14 +210,22 @@ test_qspi (void)
 	  // done, clean-up and exit
 	  free (pr);
 	  free (pw);
-	  if (j == 4096)
-	    trace_printf ("Flash test passed\n");
+	  if (j == sector_count)
+	    {
+	      trace::printf (
+		  "Flash test passed\nTotal write time %.2f s, "
+		  "total read time %.2f s\n"
+		  "Avg. sector write time %.2f ms, avg. sector read time %.2f ms\n",
+		  total_write / (float) 1000000, total_read / (float) 1000000,
+		  (total_write / sector_count) / (float) 1000,
+		  (total_read / sector_count) / (float) 1000);
+	    }
 	}
       else
-	trace_printf ("Out of memory\n");
+	trace::printf ("Out of memory\n");
     }
   while (false);
 
-  trace_printf ("Exiting flash tests.\n");
+  trace::printf ("Exiting flash tests.\n");
 }
 

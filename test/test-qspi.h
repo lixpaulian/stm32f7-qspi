@@ -1,7 +1,7 @@
 /*
  * test-qspi.h
  *
- * Copyright (c) 2016 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2016, 2017 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -30,9 +30,35 @@
 #ifndef TEST_TEST_QSPI_H_
 #define TEST_TEST_QSPI_H_
 
-
 void
 test_qspi (void);
 
+class stopwatch
+{
+public:
+
+  stopwatch () = default;
+
+  void
+  start (void);
+
+  uint32_t
+  stop (void);
+
+private:
+  os::rtos::clock::timestamp_t lap_ = 0;
+};
+
+inline void
+stopwatch::start (void)
+{
+  lap_ = os::rtos::hrclock.now ();
+}
+
+inline uint32_t
+stopwatch::stop (void)
+{
+  return (uint32_t)((os::rtos::hrclock.now () - lap_) / 96);
+}
 
 #endif /* TEST_TEST_QSPI_H_ */
