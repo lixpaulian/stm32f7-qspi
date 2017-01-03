@@ -1,7 +1,7 @@
 /*
  * qspi-micron.cpp
  *
- * Copyright (c) 2016 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2016, 2017 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -25,37 +25,32 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  *
  * Created on: 31 Dec 2016 (LNP)
- *
- * Version: 0.3, 31 Dec 2016
  */
 
 /*
  * This file implements the specific basic low level functions to control
- * Micron (formerly ST) QSPI flash devices.
+ * Micron QSPI flash devices (acquired from ST).
  */
-
 
 #include "qspi-micron.h"
 
 #include <cmsis-plus/rtos/os.h>
 #include <cmsis-plus/diag/trace.h>
 
-
 using namespace os;
-
 
 /**
  * @brief  Switch the flash chip to quad mode.
  * @return true if successful, false otherwise.
  */
 bool
-qspi_micron::mode_quad (qspi* pq)
+qspi_micron::enter_quad_mode (qspi* pq)
 {
   QSPI_CommandTypeDef sCommand;
   bool result = false;
   uint8_t datareg;
 
-  if (pq->mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
+  if (pq->mutex_.timed_lock (qspi::QSPI_TIMEOUT) == rtos::result::ok)
     {
       // Initial command settings
       sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
@@ -71,9 +66,11 @@ qspi_micron::mode_quad (qspi* pq)
 
       // Read enhanced volatile register
       sCommand.Instruction = READ_ENH_VOLATILE_STATUS_REGISTER;
-      if (HAL_QSPI_Command (pq->hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
+      if (HAL_QSPI_Command (pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT)
+	  == HAL_OK)
 	{
-	  if (HAL_QSPI_Receive (pq->hqspi_, &datareg, QSPI_TIMEOUT) == HAL_OK)
+	  if (HAL_QSPI_Receive (pq->hqspi_, &datareg, qspi::QSPI_TIMEOUT)
+	      == HAL_OK)
 	    {
 	      if ((datareg & 0x80) == 0)
 		{
@@ -81,18 +78,18 @@ qspi_micron::mode_quad (qspi* pq)
 		  // Enable write
 		  sCommand.DataMode = QSPI_DATA_NONE;
 		  sCommand.Instruction = qspi::WRITE_ENABLE;
-		  if (HAL_QSPI_Command (pq->hqspi_, &sCommand, QSPI_TIMEOUT)
-		      == HAL_OK)
+		  if (HAL_QSPI_Command (pq->hqspi_, &sCommand,
+					qspi::QSPI_TIMEOUT) == HAL_OK)
 		    {
 		      // Write back enhanced volatile register (enable Quad)
 		      sCommand.DataMode = QSPI_DATA_1_LINE;
 		      sCommand.Instruction = WRITE_ENH_VOLATILE_STATUS_REGISTER;
-		      if (HAL_QSPI_Command (pq->hqspi_, &sCommand, QSPI_TIMEOUT)
-			  == HAL_OK)
+		      if (HAL_QSPI_Command (pq->hqspi_, &sCommand,
+					    qspi::QSPI_TIMEOUT) == HAL_OK)
 			{
 			  datareg |= 0x80;
-			  if (HAL_QSPI_Transmit (pq->hqspi_, &datareg, QSPI_TIMEOUT)
-			      == HAL_OK)
+			  if (HAL_QSPI_Transmit (pq->hqspi_, &datareg,
+						 qspi::QSPI_TIMEOUT) == HAL_OK)
 			    {
 			      result = true;
 			    }
@@ -116,15 +113,13 @@ qspi_micron::mode_quad (qspi* pq)
  * @return true if successful, false otherwise.
  */
 bool
-qspi_micron::memory_mapped (qspi* pq)
+qspi_micron::enter_mem_mapped (qspi* pq)
 {
   bool result = false;
   QSPI_CommandTypeDef sCommand;
   QSPI_MemoryMappedTypeDef sMemMappedCfg;
 
-  HAL_QSPI_Abort (pq->hqspi_);
-
-  if (pq->mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
+  if (pq->mutex_.timed_lock (qspi::QSPI_TIMEOUT) == rtos::result::ok)
     {
       sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
       sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_4_LINES;
@@ -135,12 +130,13 @@ qspi_micron::memory_mapped (qspi* pq)
       sCommand.InstructionMode = QSPI_INSTRUCTION_1_LINE;
       sCommand.AddressMode = QSPI_ADDRESS_1_LINE;
       sCommand.DataMode = QSPI_DATA_4_LINES;
-      sCommand.DummyCycles = 10;
+      sCommand.DummyCycles = 6; //10;
       sCommand.Instruction = qspi::FAST_READ_QUAD_OUT;
 
       sMemMappedCfg.TimeOutActivation = QSPI_TIMEOUT_COUNTER_DISABLE;
 
-      if (HAL_QSPI_MemoryMapped (pq->hqspi_, &sCommand, &sMemMappedCfg) == HAL_OK)
+      if (HAL_QSPI_MemoryMapped (pq->hqspi_, &sCommand, &sMemMappedCfg)
+	  == HAL_OK)
 	{
 	  result = true;
 	}
@@ -162,7 +158,7 @@ qspi_micron::read (qspi* pq, uint32_t address, uint8_t* buff, size_t count)
   bool result = false;
   QSPI_CommandTypeDef sCommand;
 
-  if (pq->mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
+  if (pq->mutex_.timed_lock (qspi::QSPI_TIMEOUT) == rtos::result::ok)
     {
       // Read command settings
       sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
@@ -174,19 +170,19 @@ qspi_micron::read (qspi* pq, uint32_t address, uint8_t* buff, size_t count)
       sCommand.InstructionMode = QSPI_INSTRUCTION_1_LINE;
       sCommand.AddressMode = QSPI_ADDRESS_1_LINE;
       sCommand.DataMode = QSPI_DATA_4_LINES;
-      sCommand.DummyCycles = 10;
+      sCommand.DummyCycles = 6; //10;
       sCommand.Address = address;
       sCommand.NbData = count;
       sCommand.Instruction = qspi::FAST_READ_QUAD_OUT;
 
-      HAL_QSPI_Abort (pq->hqspi_);
-
       // Initiate read and wait for the event
-      if (HAL_QSPI_Command (pq->hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
+      if (HAL_QSPI_Command (pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT)
+	  == HAL_OK)
 	{
 	  if (HAL_QSPI_Receive_IT (pq->hqspi_, buff) == HAL_OK)
 	    {
-	      if (pq->semaphore_.timed_wait (QSPI_TIMEOUT) == rtos::result::ok)
+	      if (pq->semaphore_.timed_wait (qspi::QSPI_TIMEOUT)
+		  == rtos::result::ok)
 		{
 		  result = true;
 		}
@@ -200,6 +196,4 @@ qspi_micron::read (qspi* pq, uint32_t address, uint8_t* buff, size_t count)
     }
   return result;
 }
-
-
 

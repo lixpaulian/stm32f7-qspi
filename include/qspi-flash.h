@@ -1,7 +1,7 @@
 /*
  * qspi-flash.h
  *
- * Copyright (c) 2016 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2016, 2017 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -25,8 +25,6 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  *
  * Created on: 9 Oct 2016 (LNP)
- *
- * Version: 0.3, 31 Dec 2016
  */
 
 #ifndef QSPI_FLASH_H_
@@ -37,11 +35,7 @@
 
 #if defined (__cplusplus)
 
-// All timeouts are in # of uOS++ ticks (normally 1 ms)
-#define QSPI_TIMEOUT 100
-#define QSPI_ERASE_TIMEOUT 2000
-#define QSPI_CHIP_ERASE_TIMEOUT 200000
-
+typedef struct qspi_device_s qspi_device_t;
 class qspi_impl;
 
 class qspi
@@ -51,18 +45,20 @@ public:
 
   ~qspi () = default;
 
-  bool
-  read_JEDEC_ID (void);
+  void
+  get_version (uint8_t& version_major, uint8_t& version_minor);
 
   bool
-  get_ID_data (uint8_t& manufacturer_ID, uint8_t& memory_type,
-	       uint8_t& memory_capacity);
+  initialize (void);
 
   bool
-  mode_quad ();
+  enter_quad_mode (void);
 
   bool
-  memory_mapped ();
+  enter_mem_mapped (void);
+
+  bool
+  exit_mem_mapped (void);
 
   bool
   read (uint32_t address, uint8_t* buff, size_t count);
@@ -71,16 +67,34 @@ public:
   write (uint32_t address, uint8_t* buff, size_t count);
 
   bool
-  sector_erase (uint32_t address);
+  read_sector (uint32_t sector, uint8_t* buff, size_t count);
 
   bool
-  block32K_erase (uint32_t address);
+  write_sector (uint32_t sector, uint8_t* buff, size_t count);
 
   bool
-  block64K_erase (uint32_t address);
+  erase_sector (uint32_t sector);
 
   bool
-  chip_erase (void);
+  erase_block32K (uint32_t address);
+
+  bool
+  erase_block64K (uint32_t address);
+
+  bool
+  erase_chip (void);
+
+  const char*
+  get_manufacturer (void);
+
+  const char*
+  get_memory_type (void);
+
+  size_t
+  get_sector_size (void);
+
+  size_t
+  get_sector_count (void);
 
   void
   cb_event (void);
@@ -91,6 +105,9 @@ public:
 protected:
   bool
   page_write (uint32_t address, uint8_t* buff, size_t count);
+
+  bool
+  read_JEDEC_ID (void);
 
   // Standard command sub-set (common for all flash chips)
   static constexpr uint8_t JEDEC_ID = 0x9F;
@@ -117,6 +134,11 @@ protected:
   static constexpr uint8_t FAST_READ_QUAD_OUT = 0x6B;
   static constexpr uint8_t FAST_READ_QUAD_IN_OUT = 0xEB;
 
+  // Some timeouts; all timeouts are in # of uOS++ ticks (normally 1 ms)
+  static constexpr uint32_t QSPI_TIMEOUT = 100;
+  static constexpr uint32_t QSPI_ERASE_TIMEOUT = 2000;
+  static constexpr uint32_t QSPI_CHIP_ERASE_TIMEOUT = 200000;
+
   QSPI_HandleTypeDef* hqspi_;
   os::rtos::semaphore_binary semaphore_
     { "qspi", 0 };
@@ -127,19 +149,21 @@ private:
   bool
   erase (uint32_t address, uint8_t which);
 
-  class qspi_impl* pimpl = nullptr;
+  static constexpr uint8_t QSPI_VERSION_MAJOR = 0;
+  static constexpr uint8_t QSPI_VERSION_MINOR = 4;
 
+  class qspi_impl* pimpl = nullptr;
   uint8_t manufacturer_ID_ = 0;
-  uint8_t memory_type_ = 0;
-  uint8_t memory_capacity_ = 0;
-  bool valid_mem_ID = false;
+  uint16_t memory_type_ = 0;
+  const char* pmanufacturer_ = nullptr;
+  const qspi_device_t* pdevice_ = nullptr;
 
 };
 
 class qspi_impl
 {
 public:
-  qspi_impl ()
+  qspi_impl (void)
   {
   }
 
@@ -147,26 +171,39 @@ public:
   ~qspi_impl () = default;
 
   virtual bool
-  mode_quad (qspi* pq) = 0;
+  enter_quad_mode (qspi* pq) = 0;
 
   virtual bool
-  memory_mapped (qspi* pq) = 0;
+  enter_mem_mapped (qspi* pq) = 0;
 
   virtual bool
   read (qspi* pq, uint32_t address, uint8_t* buff, size_t count) = 0;
 
 };
 
-inline bool
-qspi::mode_quad ()
+inline void
+qspi::get_version (uint8_t& version_major, uint8_t& version_minor)
 {
-  return (pimpl == nullptr) ? false : pimpl->mode_quad (this);
+  version_major = QSPI_VERSION_MAJOR;
+  version_minor = QSPI_VERSION_MINOR;
 }
 
 inline bool
-qspi::memory_mapped ()
+qspi::enter_quad_mode (void)
 {
-  return (pimpl == nullptr) ? false : pimpl->memory_mapped (this);
+  return (pimpl == nullptr) ? false : pimpl->enter_quad_mode (this);
+}
+
+inline bool
+qspi::enter_mem_mapped (void)
+{
+  return (pimpl == nullptr) ? false : pimpl->enter_mem_mapped (this);
+}
+
+inline bool
+qspi::exit_mem_mapped (void)
+{
+  return (HAL_QSPI_Abort (hqspi_) == HAL_OK);
 }
 
 inline bool
@@ -176,27 +213,27 @@ qspi::read (uint32_t address, uint8_t* buff, size_t count)
 }
 
 inline bool
-qspi::sector_erase (uint32_t address)
-{
-  return erase (address, SECTOR_ERASE);
-}
-
-inline bool
-qspi::block32K_erase (uint32_t address)
+qspi::erase_block32K (uint32_t address)
 {
   return erase (address, BLOCK_32K_ERASE);
 }
 
 inline bool
-qspi::block64K_erase (uint32_t address)
+qspi::erase_block64K (uint32_t address)
 {
   return erase (address, BLOCK_64K_ERASE);
 }
 
 inline bool
-qspi::chip_erase (void)
+qspi::erase_chip (void)
 {
   return erase (0, CHIP_ERASE);
+}
+
+inline const char*
+qspi::get_manufacturer (void)
+{
+  return pmanufacturer_;
 }
 
 #endif
