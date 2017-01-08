@@ -39,6 +39,8 @@
 #include "qspi-flash.h"
 #include "test-qspi.h"
 
+#define TEST_VERBOSE false
+
 extern "C"
 {
   QSPI_HandleTypeDef hqspi;
@@ -91,49 +93,49 @@ test_qspi (void)
   do
     {
       // read memory parameters
-      sw.start ();
       if (flash.initialize () == false)
 	{
-	  trace::printf ("Failed read the memory parameters\n");
-	  break;
+	  trace::printf (
+	      "Failed to read the memory parameters, try reseting the chip\n");
+	  if (flash.reset_chip () == false)
+	    {
+	      trace::printf ("Failed to reset the chip");
+	      break;
+	    }
+	  if (flash.initialize () == false)
+	    {
+	      trace::printf ("Failed twice to read the memory parameters");
+	      break;
+	    }
 	}
-      else
-	{
-	  trace::printf ("Initialized in %.3f ms\n", sw.stop () / (float) 1000);
 
-	  sector_size = flash.get_sector_size ();
-	  sector_count = flash.get_sector_count ();
-	  uint8_t version_major, version_minor;
+      sector_size = flash.get_sector_size ();
+      sector_count = flash.get_sector_count ();
+      uint8_t version_major, version_minor;
 
-	  flash.get_version (version_major, version_minor);
-	  trace::printf ("Driver version: %d.%d\n", version_major,
-			 version_minor);
-	  trace::printf ("Manufacturer: %s, type: %s, sector size: %d bytes, "
-			 "sector count: %d\n",
-			 flash.get_manufacturer (), flash.get_memory_type (),
-			 sector_size, sector_count);
-	}
+      flash.get_version (version_major, version_minor);
+      trace::printf ("Driver version: %d.%d\n", version_major, version_minor);
+      trace::printf ("Manufacturer: %s, type: %s, sector size: %d bytes, "
+		     "sector count: %d\n",
+		     flash.get_manufacturer (), flash.get_memory_type (),
+		     sector_size, sector_count);
 //      break;
 
       // switch qspi flash to quad mode
-      sw.start ();
       if (flash.enter_quad_mode () == false)
 	{
 	  trace::printf ("Failed to switch the flash to quad mode\n");
 	  break;
 	}
-      trace::printf ("Entered quad mode in %.3f ms\n",
-		     sw.stop () / (float) 1000);
+      trace::printf ("Entered quad mode\n");
 
       // switch mode to memory mapped
-      sw.start ();
       if (flash.enter_mem_mapped () == false)
 	{
 	  trace::printf ("Failed enter memory mapped mode\n");
 	  break;
 	}
-      trace::printf ("Entered memory mapped mode in %.3f ms\n",
-		     sw.stop () / (float) 1000);
+      trace::printf ("Entered memory mapped mode\n");
 //      break;
 
       // check if flash is erased
@@ -141,8 +143,8 @@ test_qspi (void)
       for (i = 0; i < (sector_count * sector_size); i++, pf++)
 	if (*pf != 0xFF)
 	  break;
-      trace::printf ("Checked if flash is erased in %.3f ms\n",
-		     sw.stop () / (float) 1000);
+      trace::printf ("Checked if flash is erased in %.3f ms (%d)\n",
+		     sw.stop () / (float) 1000, i);
 
       if (flash.exit_mem_mapped () == false)
 	{
@@ -171,13 +173,16 @@ test_qspi (void)
       uint8_t *pr = reinterpret_cast<uint8_t*> (malloc (sector_size));
       int j;
 
+      trace::printf ("Write/read test started...\n");
       if (pw && pr)
 	{
 	  // generate a random block of data
 	  srand (0xBABA);
 	  for (j = 0; j < sector_size; j++)
 	    {
+#if TEST_VERBOSE == true
 	      trace::printf ("Test block #%5d\n", j);
+#endif
 	      for (i = 0; i < sector_size; i++)
 		pw[i] = (uint8_t) random ();
 
@@ -202,7 +207,7 @@ test_qspi (void)
 	      // compare data
 	      if (memcmp (pw, pr, sector_size) != 0)
 		{
-		  trace::printf ("Compare error\n");
+		  trace::printf ("Compare error at block %d\n", j);
 		  break;
 		}
 	    }
@@ -225,6 +230,15 @@ test_qspi (void)
 	trace::printf ("Out of memory\n");
     }
   while (false);
+
+  if (flash.reset_chip () == false)
+    {
+      trace::printf ("Failed to reset the flash chip\n");
+    }
+  else
+    {
+      trace::printf ("Flash chip successfully reset\n");
+    }
 
   trace::printf ("Exiting flash tests.\n");
 }
