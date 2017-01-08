@@ -84,6 +84,9 @@ public:
   bool
   erase_chip (void);
 
+  bool
+  reset_chip (void);
+
   const char*
   get_manufacturer (void);
 
@@ -126,6 +129,9 @@ protected:
   static constexpr uint8_t RESET_ENABLE = 0x66;
   static constexpr uint8_t RESET_DEVICE = 0x99;
 
+  static constexpr uint8_t POWER_DOWN = 0xB9;
+  static constexpr uint8_t RELEASE_POWER_DOWN = 0xAB;
+
   static constexpr uint8_t PAGE_PROGRAM = 0x02;
   static constexpr uint8_t QUAD_PAGE_PROGRAM = 0x32;
 
@@ -150,7 +156,7 @@ private:
   erase (uint32_t address, uint8_t which);
 
   static constexpr uint8_t QSPI_VERSION_MAJOR = 0;
-  static constexpr uint8_t QSPI_VERSION_MINOR = 4;
+  static constexpr uint8_t QSPI_VERSION_MINOR = 5;
 
   class qspi_impl* pimpl = nullptr;
   uint8_t manufacturer_ID_ = 0;
@@ -173,12 +179,6 @@ public:
   virtual bool
   enter_quad_mode (qspi* pq) = 0;
 
-  virtual bool
-  enter_mem_mapped (qspi* pq) = 0;
-
-  virtual bool
-  read (qspi* pq, uint32_t address, uint8_t* buff, size_t count) = 0;
-
 };
 
 inline void
@@ -195,21 +195,9 @@ qspi::enter_quad_mode (void)
 }
 
 inline bool
-qspi::enter_mem_mapped (void)
-{
-  return (pimpl == nullptr) ? false : pimpl->enter_mem_mapped (this);
-}
-
-inline bool
 qspi::exit_mem_mapped (void)
 {
   return (HAL_QSPI_Abort (hqspi_) == HAL_OK);
-}
-
-inline bool
-qspi::read (uint32_t address, uint8_t* buff, size_t count)
-{
-  return (pimpl == nullptr) ? false : pimpl->read (this, address, buff, count);
 }
 
 inline bool
