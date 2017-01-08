@@ -27,13 +27,14 @@ Most QSPI flash devices operate in two basic modes:
 * Extended SPI mode: instruction, address and data can be sent/received to/from the chip both in single and quad (or dual) mode (e.g. instruction and address in single line mode and data in quad mode).
 * Quad (or QPI) mode: the communication to/from the chip is done exclusively in quad mode.
 A device cannot operate in both modes at the same time. There are provisions to switch the chip from one mode to the other, however there are differences on how the switch is done from chip to chip. There is also the danger that the flash chip and the controller get out of sync, e.g. if the controller is reset but the flash chip is not.
+
 The philosophy behind the driver is that there is only one command executed in standard mode: read ID. This is done right after the system comes up and is initialized. If the chip is identified and known for the driver, it is immediately switched to quad mode. From now on, all commands are implemented in quad mode. If for any unforeseen reasons there is a need to switch back to standard mode, you can use the reset function call. For an example on how to use the driver, check out the "test" directory.
 
 ## Tests
 There is a test that must be run on a real target. Note that the test is distructive, the whole content of the flash will be lost!
 
 The test performs the following flash operations:
-* Reads-out the chip ID and initializes the internal driver structures (manufacturer, flash type, sector count and size
+* Reads-out the chip ID and initializes the internal driver structures (manufacturer, flash type, sector count and size)
 * Switches the flash to memory-mapped mode; the flash is mapped at the address 0x90000000
 * Checks if the flash is erased (all FFs); if it is not, the flash will be erased
 * Generates a stream of random bytes and writes them to the flash, one sector (4 KBytes at a time).
