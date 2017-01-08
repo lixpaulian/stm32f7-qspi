@@ -32,22 +32,22 @@
 // Micron devices
 const qspi_device_t micron_devices[] =
   {
-    { 0xBA18, 4096, "MT25QL128ABA", true, false },
-    { 0xBB18, 4096, "MT25QL128ABA", true, false },
+    { 0xBA18, 4096, "MT25QL128ABA", true, 8 },
+    { 0xBB18, 4096, "MT25QL128ABA", true, 8 },
     { } //
   };
 
 // Winbond devices
 const qspi_device_t winbond_devices[] =
   {
-    { 0x4015, 4096, "W25Q16DV", false, true },
-    { 0x4016, 4096, "W25Q32FV", false, true },
-    { 0x6016, 4096, "W25Q32FV", false, true },
-    { 0x4017, 4096, "W25Q64FV", false, true },
-    { 0x6017, 4096, "W25Q64FV", false, true },
-    { 0x4018, 4096, "W25Q128FV", false, true },
-    { 0x6018, 4096, "W25Q128FV", false, true },
-    { 0x7018, 4096, "W25Q128JV", true, true },
+    { 0x4015, 4096, "W25Q16DV", false, 8 },
+    { 0x4016, 4096, "W25Q32FV", false, 8 },
+    { 0x6016, 4096, "W25Q32FV", false, 8 },
+    { 0x4017, 4096, "W25Q64FV", false, 8 },
+    { 0x6017, 4096, "W25Q64FV", false, 8 },
+    { 0x4018, 4096, "W25Q128FV", false, 0 },
+    { 0x6018, 4096, "W25Q128FV", false, 0 },
+    { 0x7018, 4096, "W25Q128JV", true, 8 },
     { } //
   };
 

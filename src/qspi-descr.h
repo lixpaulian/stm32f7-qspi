@@ -41,7 +41,7 @@ typedef struct qspi_device_s
   uint16_t sector_size;
   const char* device_name;
   bool DTR_support;
-  bool pwrdown_support;
+  uint8_t dummy_cycles;	// dummy cycles in quad fast read mode
 } qspi_device_t;
 
 typedef struct qspi_manuf_s
