@@ -32,10 +32,10 @@
  * Winbond QSPI flash devices.
  */
 
-#include "qspi-winbond.h"
-
 #include <cmsis-plus/rtos/os.h>
 #include <cmsis-plus/diag/trace.h>
+
+#include "qspi-winbond.h"
 
 using namespace os;
 
@@ -60,46 +60,33 @@ qspi_winbond::enter_quad_mode (qspi* pq)
       sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
       sCommand.InstructionMode = QSPI_INSTRUCTION_1_LINE;
       sCommand.AddressMode = QSPI_ADDRESS_NONE;
-      sCommand.DataMode = QSPI_DATA_1_LINE;
+      sCommand.DataMode = QSPI_DATA_NONE;
       sCommand.DummyCycles = 0;
       sCommand.NbData = 1;
 
-      // Read status register 2
-      sCommand.Instruction = READ_STATUS_REGISTER_2;
+      // Enable volatile write
+      sCommand.Instruction = VOLATILE_SR_WRITE_ENABLE;
       if (HAL_QSPI_Command (pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT)
 	  == HAL_OK)
 	{
-	  if (HAL_QSPI_Receive (pq->hqspi_, &datareg, qspi::QSPI_TIMEOUT)
+	  // Write status register 2 (enable QE)
+	  sCommand.DataMode = QSPI_DATA_1_LINE;
+	  sCommand.Instruction = WRITE_STATUS_REGISTER_2;
+	  if (HAL_QSPI_Command (pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT)
 	      == HAL_OK)
 	    {
-	      if ((datareg & 2) == 0)
+	      datareg = 2;
+	      if (HAL_QSPI_Transmit (pq->hqspi_, &datareg, qspi::QSPI_TIMEOUT)
+		  == HAL_OK)
 		{
-		  // QE bit not set
-		  // Enable volatile write
 		  sCommand.DataMode = QSPI_DATA_NONE;
-		  sCommand.Instruction = VOLATILE_SR_WRITE_ENABLE;
+		  sCommand.Instruction = ENTER_QUAD_MODE;
 		  if (HAL_QSPI_Command (pq->hqspi_, &sCommand,
 					qspi::QSPI_TIMEOUT) == HAL_OK)
 		    {
-		      // Write back status register 2 (enable QE)
-		      sCommand.DataMode = QSPI_DATA_1_LINE;
-		      sCommand.Instruction = WRITE_STATUS_REGISTER_2;
-		      if (HAL_QSPI_Command (pq->hqspi_, &sCommand,
-					    qspi::QSPI_TIMEOUT) == HAL_OK)
-			{
-			  datareg |= 2;
-			  if (HAL_QSPI_Transmit (pq->hqspi_, &datareg,
-						 qspi::QSPI_TIMEOUT) == HAL_OK)
-			    {
-			      result = true;
-			    }
-			}
+		      result = true;
 		    }
 		}
-	      else
-		{
-		  result = true;
-		}
 	    }
 	}
       pq->mutex_.unlock ();
@@ -107,92 +94,3 @@ qspi_winbond::enter_quad_mode (qspi* pq)
   return result;
 }
 
-/**
- * @brief  Map the flash to the addressing space of the controller, starting at
- * 	address 0x90000000.
- * @return true if successful, false otherwise.
- */
-bool
-qspi_winbond::enter_mem_mapped (qspi* pq)
-{
-  bool result = false;
-  QSPI_CommandTypeDef sCommand;
-  QSPI_MemoryMappedTypeDef sMemMappedCfg;
-
-  if (pq->mutex_.timed_lock (qspi::QSPI_TIMEOUT) == rtos::result::ok)
-    {
-      sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
-      sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_4_LINES;
-      sCommand.AlternateBytesSize = QSPI_ALTERNATE_BYTES_8_BITS;
-      sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
-      sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
-      sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
-      sCommand.InstructionMode = QSPI_INSTRUCTION_1_LINE;
-      sCommand.AddressMode = QSPI_ADDRESS_1_LINE;
-      sCommand.DataMode = QSPI_DATA_4_LINES;
-      sCommand.DummyCycles = 6; /* it's not yet clear why 6 and not 8 dummies */
-      sCommand.Instruction = qspi::FAST_READ_QUAD_OUT;
-
-      sMemMappedCfg.TimeOutActivation = QSPI_TIMEOUT_COUNTER_DISABLE;
-
-      if (HAL_QSPI_MemoryMapped (pq->hqspi_, &sCommand, &sMemMappedCfg)
-	  == HAL_OK)
-	{
-	  result = true;
-	}
-      pq->mutex_.unlock ();
-    }
-  return result;
-}
-
-/**
- * @brief  Read a block of data from the flash.
- * @param  address: start address in flash where to read from.
- * @param  buff: buffer where to copy data to.
- * @param  count: amount of data to be retrieved from flash.
- * @return true if successful, false otherwise.
- */
-bool
-qspi_winbond::read (qspi* pq, uint32_t address, uint8_t* buff, size_t count)
-{
-  bool result = false;
-  QSPI_CommandTypeDef sCommand;
-
-  if (pq->mutex_.timed_lock (qspi::QSPI_TIMEOUT) == rtos::result::ok)
-    {
-      // Read command settings
-      sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
-      sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_4_LINES;
-      sCommand.AlternateBytesSize = QSPI_ALTERNATE_BYTES_8_BITS;
-      sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
-      sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
-      sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
-      sCommand.InstructionMode = QSPI_INSTRUCTION_1_LINE;
-      sCommand.AddressMode = QSPI_ADDRESS_1_LINE;
-      sCommand.DataMode = QSPI_DATA_4_LINES;
-      sCommand.DummyCycles = 6; /* it's not yet clear why 6 and not 8 dummies */
-      sCommand.Address = address;
-      sCommand.NbData = count;
-      sCommand.Instruction = qspi::FAST_READ_QUAD_OUT;
-
-      // Initiate read and wait for the event
-      if (HAL_QSPI_Command (pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT)
-	  == HAL_OK)
-	{
-	  if (HAL_QSPI_Receive_IT (pq->hqspi_, buff) == HAL_OK)
-	    {
-	      if (pq->semaphore_.timed_wait (qspi::QSPI_TIMEOUT)
-		  == rtos::result::ok)
-		{
-		  result = true;
-		}
-	    }
-	}
-      if (result == false)
-	{
-	  HAL_QSPI_Abort (pq->hqspi_);
-	}
-      pq->mutex_.unlock ();
-    }
-  return result;
-}

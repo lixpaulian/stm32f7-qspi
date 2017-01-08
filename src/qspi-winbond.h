@@ -38,15 +38,8 @@ class qspi_winbond : public qspi_impl
 {
 
 public:
-
   virtual bool
   enter_quad_mode (qspi* pq) override;
-
-  virtual bool
-  enter_mem_mapped (qspi* pq) override;
-
-  virtual bool
-  read (qspi* pq, uint32_t address, uint8_t* buff, size_t count) override;
 
 private:
   // Winbond specific commands
@@ -55,8 +48,7 @@ private:
   static constexpr uint8_t WRITE_STATUS_REGISTER_2 = 0x31;
   static constexpr uint8_t READ_STATUS_REGISTER_3 = 0x15;
   static constexpr uint8_t WRITE_STATUS_REGISTER_3 = 0x11;
-  static constexpr uint8_t POWER_DOWN = 0xB9;
-  static constexpr uint8_t RELEASE_POWER_DOWN = 0xAB;
+  static constexpr uint8_t ENTER_QUAD_MODE = 0x38;
 
 };
 

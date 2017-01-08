@@ -38,15 +38,8 @@ class qspi_micron : public qspi_impl
 {
 
 public:
-
   virtual bool
   enter_quad_mode (qspi* pq) override;
-
-  virtual bool
-  enter_mem_mapped (qspi* pq) override;
-
-  virtual bool
-  read (qspi* pq, uint32_t address, uint8_t* buff, size_t count) override;
 
 private:
   // Micron/ST specific commands
@@ -54,6 +47,7 @@ private:
   static constexpr uint8_t READ_ENH_VOLATILE_STATUS_REGISTER = 0x65;
   static constexpr uint8_t WRITE_VOLATILE_STATUS_REGISTER = 0x81;
   static constexpr uint8_t WRITE_ENH_VOLATILE_STATUS_REGISTER = 0x61;
+  static constexpr uint8_t ENTER_QUAD_MODE = 0x38;
 
 };
 
