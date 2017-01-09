@@ -52,6 +52,28 @@ qspi::qspi (QSPI_HandleTypeDef* hqspi)
 }
 
 /**
+ * @brief  Control the power state of the QSPI device.
+ * @param  state: new state, either power_on, power_off or power_sleep.
+ */
+void
+qspi::power_control (qspi_power_t state)
+{
+  switch (state)
+  {
+    case power_on:
+      MX_QUADSPI_Init ();
+      break;
+
+    case power_off:
+      HAL_QSPI_DeInit (hqspi_);
+      break;
+
+    case power_sleep:
+      break;
+  }
+}
+
+/**
  * @brief  Read the flash chip ID and initialize the internal structures accordingly.
  * @return true if successful, false if the flash could not be identified or it is
  * 	not supported by the driver.
@@ -157,28 +179,32 @@ qspi::enter_mem_mapped (void)
   QSPI_CommandTypeDef sCommand;
   QSPI_MemoryMappedTypeDef sMemMappedCfg;
 
-  if (mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
+  if (pdevice_ != nullptr)
     {
-      sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
-      sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_4_LINES;
-      sCommand.AlternateBytesSize = QSPI_ALTERNATE_BYTES_8_BITS;
-      sCommand.AlternateBytes = 0;	// Continuous read mode off
-      sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
-      sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
-      sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
-      sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
-      sCommand.AddressMode = QSPI_ADDRESS_4_LINES;
-      sCommand.DataMode = QSPI_DATA_4_LINES;
-      sCommand.DummyCycles = pdevice_->dummy_cycles;
-      sCommand.Instruction = FAST_READ_QUAD_IN_OUT;
-
-      sMemMappedCfg.TimeOutActivation = QSPI_TIMEOUT_COUNTER_DISABLE;
-
-      if (HAL_QSPI_MemoryMapped (hqspi_, &sCommand, &sMemMappedCfg) == HAL_OK)
+      if (mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
 	{
-	  result = true;
+	  sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
+	  sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_4_LINES;
+	  sCommand.AlternateBytesSize = QSPI_ALTERNATE_BYTES_8_BITS;
+	  sCommand.AlternateBytes = 0;	// Continuous read mode off
+	  sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
+	  sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+	  sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
+	  sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
+	  sCommand.AddressMode = QSPI_ADDRESS_4_LINES;
+	  sCommand.DataMode = QSPI_DATA_4_LINES;
+	  sCommand.DummyCycles = pdevice_->dummy_cycles;
+	  sCommand.Instruction = FAST_READ_QUAD_IN_OUT;
+
+	  sMemMappedCfg.TimeOutActivation = QSPI_TIMEOUT_COUNTER_DISABLE;
+
+	  if (HAL_QSPI_MemoryMapped (hqspi_, &sCommand, &sMemMappedCfg)
+	      == HAL_OK)
+	    {
+	      result = true;
+	    }
+	  mutex_.unlock ();
 	}
-      mutex_.unlock ();
     }
   return result;
 }
@@ -196,36 +222,39 @@ qspi::read (uint32_t address, uint8_t* buff, size_t count)
   bool result = false;
   QSPI_CommandTypeDef sCommand;
 
-  if (mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
+  if (pdevice_ != nullptr)
     {
-      // Read command settings
-      sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
-      sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_4_LINES;
-      sCommand.AlternateBytesSize = QSPI_ALTERNATE_BYTES_8_BITS;
-      sCommand.AlternateBytes = 0;	// Continuous read mode off
-      sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
-      sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
-      sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
-      sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
-      sCommand.AddressMode = QSPI_ADDRESS_4_LINES;
-      sCommand.DataMode = QSPI_DATA_4_LINES;
-      sCommand.DummyCycles = pdevice_->dummy_cycles;
-      sCommand.Address = address;
-      sCommand.NbData = count;
-      sCommand.Instruction = FAST_READ_QUAD_IN_OUT;
-
-      // Initiate read and wait for the event
-      if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
+      if (mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
 	{
-	  if (HAL_QSPI_Receive_IT (hqspi_, buff) == HAL_OK)
+	  // Read command settings
+	  sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
+	  sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_4_LINES;
+	  sCommand.AlternateBytesSize = QSPI_ALTERNATE_BYTES_8_BITS;
+	  sCommand.AlternateBytes = 0;	// Continuous read mode off
+	  sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
+	  sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+	  sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
+	  sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
+	  sCommand.AddressMode = QSPI_ADDRESS_4_LINES;
+	  sCommand.DataMode = QSPI_DATA_4_LINES;
+	  sCommand.DummyCycles = pdevice_->dummy_cycles;
+	  sCommand.Address = address;
+	  sCommand.NbData = count;
+	  sCommand.Instruction = FAST_READ_QUAD_IN_OUT;
+
+	  // Initiate read and wait for the event
+	  if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
 	    {
-	      if (semaphore_.timed_wait (QSPI_TIMEOUT) == rtos::result::ok)
+	      if (HAL_QSPI_Receive_IT (hqspi_, buff) == HAL_OK)
 		{
-		  result = true;
+		  if (semaphore_.timed_wait (QSPI_TIMEOUT) == rtos::result::ok)
+		    {
+		      result = true;
+		    }
 		}
 	    }
+	  mutex_.unlock ();
 	}
-      mutex_.unlock ();
     }
   return result;
 }
@@ -243,34 +272,37 @@ qspi::write (uint32_t address, uint8_t* buff, size_t count)
   bool result = true;
   size_t in_block_count;
 
-  do
+  if (pdevice_ != nullptr)
     {
-      in_block_count = 0x100 - (address & 0xFF);
-      if (in_block_count > count)
-	in_block_count = count;
-      else if (in_block_count == 0)
+      do
 	{
-	  in_block_count = (count > 0x100) ? 0x100 : count;
+	  in_block_count = 0x100 - (address & 0xFF);
+	  if (in_block_count > count)
+	    in_block_count = count;
+	  else if (in_block_count == 0)
+	    {
+	      in_block_count = (count > 0x100) ? 0x100 : count;
+	    }
+	  if (page_write (address, buff, in_block_count) == false)
+	    {
+	      result = false;
+	      break;
+	    }
+	  address += in_block_count;
+	  buff += in_block_count;
+	  count -= in_block_count;
 	}
-      if (page_write (address, buff, in_block_count) == false)
-	{
-	  result = false;
-	  break;
-	}
-      address += in_block_count;
-      buff += in_block_count;
-      count -= in_block_count;
+      while (count);
     }
-  while (count);
 
   return result;
 }
 
 /**
- * @brief  Write a page of data to the flash (max. 255 bytes).
+ * @brief  Write a page of data to the flash (max. 256 bytes).
  * @param  address: address of the page in flash.
  * @param  buff: buffer of the source data.
- * @param  count: number of bytes to be written (max 255).
+ * @param  count: number of bytes to be written (max 256).
  * @return true if successful, false otherwise.
  */
 bool
@@ -329,10 +361,6 @@ qspi::page_write (uint32_t address, uint8_t* buff, size_t count)
 		}
 	    }
 	}
-      if (result == false)
-	{
-	  HAL_QSPI_Abort (hqspi_);
-	}
       mutex_.unlock ();
     }
   return result;
@@ -352,58 +380,57 @@ qspi::erase (uint32_t address, uint8_t which)
   QSPI_CommandTypeDef sCommand;
   QSPI_AutoPollingTypeDef sConfig;
 
-  if (mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
+  if (pdevice_ != nullptr)
     {
-      // Initial command settings
-      sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
-      sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
-      sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
-      sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
-      sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
-      sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
-      sCommand.AddressMode = QSPI_ADDRESS_NONE;
-      sCommand.DataMode = QSPI_DATA_NONE;
-      sCommand.DummyCycles = 0;
-
-      // Enable write
-      sCommand.Instruction = WRITE_ENABLE;
-      if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
+      if (mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
 	{
-	  // Initiate erase
-	  sCommand.Instruction = which;
-	  sCommand.AddressMode = (which == CHIP_ERASE) ? QSPI_ADDRESS_NONE : //
-	      QSPI_ADDRESS_4_LINES;
+	  // Initial command settings
+	  sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
+	  sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+	  sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
+	  sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+	  sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
+	  sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
+	  sCommand.AddressMode = QSPI_ADDRESS_NONE;
 	  sCommand.DataMode = QSPI_DATA_NONE;
-	  sCommand.Address = address;
+	  sCommand.DummyCycles = 0;
+
+	  // Enable write
+	  sCommand.Instruction = WRITE_ENABLE;
 	  if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
 	    {
-	      // Set auto-polling and wait for the event
-	      sCommand.Instruction = READ_STATUS_REGISTER;
-	      sCommand.AddressMode = QSPI_ADDRESS_NONE;
-	      sCommand.DataMode = QSPI_DATA_4_LINES;
-	      sConfig.Match = 0;
-	      sConfig.Mask = 1;
-	      sConfig.MatchMode = QSPI_MATCH_MODE_AND;
-	      sConfig.StatusBytesSize = 1;
-	      sConfig.Interval = 0x10;
-	      sConfig.AutomaticStop = QSPI_AUTOMATIC_STOP_ENABLE;
-	      if (HAL_QSPI_AutoPolling_IT (hqspi_, &sCommand, &sConfig)
-		  == HAL_OK)
+	      // Initiate erase
+	      sCommand.Instruction = which;
+	      sCommand.AddressMode = (which == CHIP_ERASE) ? QSPI_ADDRESS_NONE : //
+		  QSPI_ADDRESS_4_LINES;
+	      sCommand.DataMode = QSPI_DATA_NONE;
+	      sCommand.Address = address;
+	      if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
 		{
-		  if (semaphore_.timed_wait (
-		      (which == CHIP_ERASE) ? QSPI_CHIP_ERASE_TIMEOUT : //
-			  QSPI_ERASE_TIMEOUT) == rtos::result::ok)
+		  // Set auto-polling and wait for the event
+		  sCommand.Instruction = READ_STATUS_REGISTER;
+		  sCommand.AddressMode = QSPI_ADDRESS_NONE;
+		  sCommand.DataMode = QSPI_DATA_4_LINES;
+		  sConfig.Match = 0;
+		  sConfig.Mask = 1;
+		  sConfig.MatchMode = QSPI_MATCH_MODE_AND;
+		  sConfig.StatusBytesSize = 1;
+		  sConfig.Interval = 0x10;
+		  sConfig.AutomaticStop = QSPI_AUTOMATIC_STOP_ENABLE;
+		  if (HAL_QSPI_AutoPolling_IT (hqspi_, &sCommand, &sConfig)
+		      == HAL_OK)
 		    {
-		      result = true;
+		      if (semaphore_.timed_wait (
+			  (which == CHIP_ERASE) ? QSPI_CHIP_ERASE_TIMEOUT : //
+			      QSPI_ERASE_TIMEOUT) == rtos::result::ok)
+			{
+			  result = true;
+			}
 		    }
 		}
 	    }
+	  mutex_.unlock ();
 	}
-      if (result == false)
-	{
-	  HAL_QSPI_Abort (hqspi_);
-	}
-      mutex_.unlock ();
     }
   return result;
 }
@@ -486,34 +513,41 @@ qspi::reset_chip (void)
 
 /**
  * @brief  Return the memory type.
- * @return Pointer to a string representing the human readable memory type.
+ * @return Pointer to a string representing the human readable memory type, or
+ * 	null pointer if the system is not initialized.
  */
 const char*
 qspi::get_memory_type (void)
 {
-  return pdevice_->device_name;
+  return (pdevice_ == nullptr) ? nullptr : pdevice_->device_name;
 }
 
 /**
  * @brief  Return the sector size.
- * @return The sector size in bytes.
+ * @return The sector size in bytes, zero if system is not initialized.
  */
 size_t
 qspi::get_sector_size (void)
 {
-  return pdevice_->sector_size;
+  return (pdevice_ == nullptr) ? 0 : pdevice_->sector_size;
 }
 
 /**
  * @brief  Return the sectors count.
- * @return The sectors count.
+ * @return The sectors count, zero if system is not initialized.
  */
 size_t
 qspi::get_sector_count (void)
 {
-  size_t size = pdevice_->device_ID & 0xFF;
-  size = (1 << size);
-  return size / pdevice_->sector_size;
+  size_t size = 0;
+
+  if (pdevice_ != nullptr)
+    {
+      size_t size = pdevice_->device_ID & 0xFF;
+      size = (1 << size);
+      return size / pdevice_->sector_size;
+    }
+  return size;
 }
 
 /**
