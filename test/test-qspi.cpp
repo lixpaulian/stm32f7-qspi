@@ -38,6 +38,10 @@
 
 #include "qspi-flash.h"
 #include "test-qspi.h"
+#if defined M717
+#include "io.h"
+#endif
+
 
 #define TEST_VERBOSE false
 
@@ -50,6 +54,7 @@ using namespace os;
 
 qspi flash
   { &hqspi };
+
 
 /**
  * @brief  Status match callback.
@@ -90,8 +95,18 @@ test_qspi (void)
   stopwatch sw
     { };
 
+#if defined M717
+led red
+  { LED_RED };
+
+  red.power_up ();
+#endif
+
   do
     {
+      // configure hardware and power the QSPI peripheral
+      flash.power_control (qspi::power_on);
+
       // read memory parameters
       if (flash.initialize () == false)
 	{
@@ -158,6 +173,9 @@ test_qspi (void)
 	{
 	  trace::printf (
 	      "Flash not empty, trying to erase (it will take some time...)\n");
+#if defined M717
+	  red.turn_on ();
+#endif
 	  sw.start ();
 	  if (flash.erase_chip () == false)
 	    {
@@ -165,6 +183,9 @@ test_qspi (void)
 	      break;
 	    }
 	  trace::printf ("Erased in %.2f s\n", sw.stop () / (float) 1000000);
+#if defined M717
+	  red.turn_off ();
+#endif
 	}
 //      break;
 
@@ -187,6 +208,9 @@ test_qspi (void)
 		pw[i] = (uint8_t) random ();
 
 	      // write block
+#if defined M717
+	      red.turn_on ();
+#endif
 	      sw.start ();
 	      if (flash.write_sector (j, pw, sector_size) == false)
 		{
@@ -194,6 +218,9 @@ test_qspi (void)
 		  break;
 		}
 	      total_write += sw.stop ();
+#if defined M717
+	      red.turn_off ();
+#endif
 
 	      // read block
 	      sw.start ();
@@ -239,6 +266,8 @@ test_qspi (void)
     {
       trace::printf ("Flash chip successfully reset\n");
     }
+
+  flash.power_control (qspi::power_off);
 
   trace::printf ("Exiting flash tests.\n");
 }
