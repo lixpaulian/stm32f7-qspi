@@ -71,20 +71,38 @@ qspi_micron::enter_quad_mode (qspi* pq)
 	{
 	  // Write enhanced volatile register (enable Quad)
 	  sCommand.DataMode = QSPI_DATA_1_LINE;
-	  sCommand.Instruction = WRITE_ENH_VOLATILE_STATUS_REGISTER;
+	  sCommand.Instruction = WRITE_VOLATILE_STATUS_REGISTER;
 	  if (HAL_QSPI_Command (pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT)
 	      == HAL_OK)
 	    {
-	      datareg = 0x6F;
+	      datareg = 0x8B;
 	      if (HAL_QSPI_Transmit (pq->hqspi_, &datareg, qspi::QSPI_TIMEOUT)
 		  == HAL_OK)
 		{
 		  sCommand.DataMode = QSPI_DATA_NONE;
-		  sCommand.Instruction = ENTER_QUAD_MODE;
+		  sCommand.Instruction = qspi::WRITE_ENABLE;
 		  if (HAL_QSPI_Command (pq->hqspi_, &sCommand,
 					qspi::QSPI_TIMEOUT) == HAL_OK)
 		    {
-		      result = true;
+		      sCommand.DataMode = QSPI_DATA_1_LINE;
+		      sCommand.Instruction = WRITE_ENH_VOLATILE_STATUS_REGISTER;
+		      if (HAL_QSPI_Command (pq->hqspi_, &sCommand,
+					    qspi::QSPI_TIMEOUT) == HAL_OK)
+			{
+			  datareg = 0x6F;// 8 dummy cycles (max 106 MHz), XIP off
+			  if (HAL_QSPI_Transmit (pq->hqspi_, &datareg,
+						 qspi::QSPI_TIMEOUT) == HAL_OK)
+			    {
+			      sCommand.DataMode = QSPI_DATA_NONE;
+			      sCommand.Instruction = ENTER_QUAD_MODE;
+			      if (HAL_QSPI_Command (pq->hqspi_, &sCommand,
+						    qspi::QSPI_TIMEOUT)
+				  == HAL_OK)
+				{
+				  result = true;
+				}
+			    }
+			}
 		    }
 		}
 	    }

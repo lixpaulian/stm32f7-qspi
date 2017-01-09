@@ -84,7 +84,19 @@ qspi_winbond::enter_quad_mode (qspi* pq)
 		  if (HAL_QSPI_Command (pq->hqspi_, &sCommand,
 					qspi::QSPI_TIMEOUT) == HAL_OK)
 		    {
-		      result = true;
+		      sCommand.DataMode = QSPI_DATA_4_LINES;
+		      sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
+		      sCommand.Instruction = SET_READ_PARAMETERS;
+		      if (HAL_QSPI_Command (pq->hqspi_, &sCommand,
+					    qspi::QSPI_TIMEOUT) == HAL_OK)
+			{
+			  datareg = 0x20; // Set to 6 dummy cycles (max 104 MHz)
+			  if (HAL_QSPI_Transmit (pq->hqspi_, &datareg,
+						 qspi::QSPI_TIMEOUT) == HAL_OK)
+			    {
+			      result = true;
+			    }
+			}
 		    }
 		}
 	    }

@@ -49,6 +49,7 @@ private:
   static constexpr uint8_t READ_STATUS_REGISTER_3 = 0x15;
   static constexpr uint8_t WRITE_STATUS_REGISTER_3 = 0x11;
   static constexpr uint8_t ENTER_QUAD_MODE = 0x38;
+  static constexpr uint8_t SET_READ_PARAMETERS = 0xC0;
 
 };
 

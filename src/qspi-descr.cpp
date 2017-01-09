@@ -32,29 +32,28 @@
 // Micron devices
 const qspi_device_t micron_devices[] =
   {
-    { 0xBA18, 4096, "MT25QL128ABA", true, 8 },
-    { 0xBB18, 4096, "MT25QL128ABA", true, 8 },
+    { 0xBA18, 4096, "MT25QL128ABA", true, 6 },
+    { 0xBB18, 4096, "MT25QL128ABA", true, 6 },
     { } //
   };
 
 // Winbond devices
 const qspi_device_t winbond_devices[] =
   {
-    { 0x4015, 4096, "W25Q16DV", false, 8 },
-    { 0x4016, 4096, "W25Q32FV", false, 8 },
-    { 0x6016, 4096, "W25Q32FV", false, 8 },
-    { 0x4017, 4096, "W25Q64FV", false, 8 },
-    { 0x6017, 4096, "W25Q64FV", false, 8 },
-    { 0x4018, 4096, "W25Q128FV", false, 0 },
-    { 0x6018, 4096, "W25Q128FV", false, 0 },
-    { 0x7018, 4096, "W25Q128JV", true, 8 },
+    { 0x4016, 4096, "W25Q32FV", false, 4 },
+    { 0x6016, 4096, "W25Q32FV", false, 4 },
+    { 0x4017, 4096, "W25Q64FV", false, 4 },
+    { 0x6017, 4096, "W25Q64FV", false, 4 },
+    { 0x4018, 4096, "W25Q128FV", false, 4 },
+    { 0x6018, 4096, "W25Q128FV", false, 4 },
+    { 0x7018, 4096, "W25Q128JV", true, 4 },
     { } //
   };
 
 // Supported manufactures
 const qspi_manuf_t qspi_manufacturers[] =
   {
-    { MANUF_ID_MICRON, "Micron (ST)", micron_devices },
+    { MANUF_ID_MICRON, "Micron/ST", micron_devices },
     { MANUF_ID_WINBOND, "Winbond", winbond_devices },
     { } //
   };
