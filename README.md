@@ -2,7 +2,7 @@
 This is a QSPI serial flash driver for the STM32F7xx family of controllers.
 
 ## Version
-* 0.5 (8 Jan. 2017)
+* 0.6 (10 Jan. 2017)
 
 ## License
 * MIT
