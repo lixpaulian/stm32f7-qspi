@@ -2,7 +2,7 @@
 This is a QSPI serial flash driver for the STM32F7xx family of controllers.
 
 ## Version
-* 0.6 (10 Jan. 2017)
+* 0.7 (11 Jan. 2017)
 
 ## License
 * MIT
@@ -35,8 +35,11 @@ The philosophy behind the driver is that there is only one command executed in s
 There is a test that must be run on a real target. Note that the test is distructive, the whole content of the flash will be lost!
 
 The test performs the following flash operations:
+* Switches the power-on
 * Reads-out the chip ID and initializes the internal driver structures (manufacturer, flash type, sector count and size)
 * Switches the flash to memory-mapped mode; the flash is mapped at the address 0x90000000
 * Checks if the flash is erased (all FFs); if it is not, the flash will be erased
 * Generates a stream of random bytes and writes them to the flash, one sector (4 KBytes at a time).
 * Compares the values written to the original values in RAM.
+* Switches the flash in deep sleep mode, then switches the power off
+
