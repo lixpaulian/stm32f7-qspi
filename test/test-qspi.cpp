@@ -42,7 +42,6 @@
 #include "io.h"
 #endif
 
-
 #define TEST_VERBOSE false
 
 extern "C"
@@ -54,7 +53,6 @@ using namespace os;
 
 qspi flash
   { &hqspi };
-
 
 /**
  * @brief  Status match callback.
@@ -96,8 +94,8 @@ test_qspi (void)
     { };
 
 #if defined M717
-led red
-  { LED_RED };
+  led red
+    { LED_RED };
 
   red.power_up ();
 #endif
@@ -105,13 +103,18 @@ led red
   do
     {
       // configure hardware and power the QSPI peripheral
-      flash.power_control (qspi::power_on);
+      flash.power (true);
 
       // read memory parameters
       if (flash.initialize () == false)
 	{
 	  trace::printf (
 	      "Failed to read the memory parameters, try reseting the chip\n");
+
+	  // just in case we are in deep sleep
+	  if (flash.sleep (false) == false)
+	    trace::printf ("Failed to exit deep sleep");
+
 	  if (flash.reset_chip () == false)
 	    {
 	      trace::printf ("Failed to reset the chip");
@@ -165,6 +168,10 @@ led red
 	{
 	  trace::printf ("Failed to exit from memory mapped mode\n");
 	  break;
+	}
+      else
+	{
+	  trace::printf ("Memory mapped mode switched off\n");
 	}
 //      break;
 
@@ -258,16 +265,16 @@ led red
     }
   while (false);
 
-  if (flash.reset_chip () == false)
+  if (flash.sleep (true) == false)
     {
-      trace::printf ("Failed to reset the flash chip\n");
+      trace::printf ("Failed to switch flash chip into deep sleep\n");
     }
   else
     {
-      trace::printf ("Flash chip successfully reset\n");
+      trace::printf ("Flash chip successfully switched to deep sleep\n");
     }
 
-  flash.power_control (qspi::power_off);
+  flash.power (false);
 
   trace::printf ("Exiting flash tests.\n");
 }
