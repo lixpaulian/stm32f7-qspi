@@ -46,24 +46,20 @@ public:
 
   ~qspi () = default;
 
-  enum qspi_power_t
-  {
-    power_off = 0,
-    power_on = 1,
-    power_sleep = 2
-  };
-
   void
   get_version (uint8_t& version_major, uint8_t& version_minor);
 
   void
-  power_control (qspi_power_t state);
+  power (bool state);
 
   bool
   initialize (void);
 
   bool
   enter_quad_mode (void);
+
+  bool
+  sleep (bool state);
 
   bool
   enter_mem_mapped (void);
@@ -167,7 +163,7 @@ private:
   erase (uint32_t address, uint8_t which);
 
   static constexpr uint8_t QSPI_VERSION_MAJOR = 0;
-  static constexpr uint8_t QSPI_VERSION_MINOR = 6;
+  static constexpr uint8_t QSPI_VERSION_MINOR = 7;
 
   class qspi_impl* pimpl = nullptr;
   uint8_t manufacturer_ID_ = 0;

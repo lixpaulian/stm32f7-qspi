@@ -56,21 +56,12 @@ qspi::qspi (QSPI_HandleTypeDef* hqspi)
  * @param  state: new state, either power_on, power_off or power_sleep.
  */
 void
-qspi::power_control (qspi_power_t state)
+qspi::power (bool state)
 {
-  switch (state)
-  {
-    case power_on:
-      MX_QUADSPI_Init ();
-      break;
-
-    case power_off:
-      HAL_QSPI_DeInit (hqspi_);
-      break;
-
-    case power_sleep:
-      break;
-  }
+  if (state == true)
+    MX_QUADSPI_Init ();
+  else
+    HAL_QSPI_DeInit (hqspi_);
 }
 
 /**
@@ -161,6 +152,41 @@ qspi::read_JEDEC_ID (void)
       if (result == false)
 	{
 	  HAL_QSPI_Abort (hqspi_);
+	}
+      mutex_.unlock ();
+    }
+  return result;
+}
+
+/**
+ * @brief  Switch the flash chip into or out of deep sleep.
+ * @param  state: if true, enter deep sleep; if false, exit deep sleep.
+ * @return true if successful, false otherwise.
+ */
+bool
+qspi::sleep (bool state)
+{
+  bool result = false;
+  QSPI_CommandTypeDef sCommand;
+
+  if (mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
+    {
+      // Initial command settings
+      sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
+      sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+      sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
+      sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+      sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
+      sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
+      sCommand.AddressMode = QSPI_ADDRESS_NONE;
+      sCommand.DataMode = QSPI_DATA_NONE;
+      sCommand.DummyCycles = 0;
+
+      // Enable/disable deep sleep
+      sCommand.Instruction = state ? POWER_DOWN : RELEASE_POWER_DOWN;
+      if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
+	{
+	  result = true;
 	}
       mutex_.unlock ();
     }
