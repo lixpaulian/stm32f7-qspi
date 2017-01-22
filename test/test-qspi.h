@@ -58,7 +58,8 @@ stopwatch::start (void)
 inline uint32_t
 stopwatch::stop (void)
 {
-  return (uint32_t)((os::rtos::hrclock.now () - lap_) / 96);
+  return (uint32_t) ((os::rtos::hrclock.now () - lap_)
+      / (SystemCoreClock / 1000000));
 }
 
 #endif /* TEST_TEST_QSPI_H_ */

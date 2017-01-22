@@ -67,12 +67,23 @@ HAL_QSPI_StatusMatchCallback (
 }
 
 /**
- * @brief  Rx Transfer completed callback.
+ * @brief  Receive completed callback.
  * @param  hqspi: QSPI handle
  * @retval None
  */
 void
 HAL_QSPI_RxCpltCallback (QSPI_HandleTypeDef *hqspi __attribute__ ((unused)))
+{
+  flash.cb_event ();
+}
+
+/**
+ * @brief  Transmit completed callback.
+ * @param  hqspi: QSPI handle
+ * @retval None
+ */
+void
+HAL_QSPI_TxCpltCallback (QSPI_HandleTypeDef *hqspi __attribute__ ((unused)))
 {
   flash.cb_event ();
 }
@@ -95,7 +106,7 @@ test_qspi (void)
 
 #if defined M717
   led red
-    { LED_RED };
+    { LED_RED};
 
   red.power_up ();
 #endif
@@ -105,26 +116,11 @@ test_qspi (void)
       // configure hardware and power the QSPI peripheral
       flash.power (true);
 
-      // read memory parameters
+      // read memory parameters and initialize system
       if (flash.initialize () == false)
 	{
-	  trace::printf (
-	      "Failed to read the memory parameters, try reseting the chip\n");
-
-	  // just in case we are in deep sleep
-	  if (flash.sleep (false) == false)
-	    trace::printf ("Failed to exit deep sleep");
-
-	  if (flash.reset_chip () == false)
-	    {
-	      trace::printf ("Failed to reset the chip");
-	      break;
-	    }
-	  if (flash.initialize () == false)
-	    {
-	      trace::printf ("Failed twice to read the memory parameters");
-	      break;
-	    }
+	  trace::printf ("Failed to initialize\n");
+	  break;
 	}
 
       sector_size = flash.get_sector_size ();
@@ -138,14 +134,6 @@ test_qspi (void)
 		     flash.get_manufacturer (), flash.get_memory_type (),
 		     sector_size, sector_count);
 //      break;
-
-      // switch qspi flash to quad mode
-      if (flash.enter_quad_mode () == false)
-	{
-	  trace::printf ("Failed to switch the flash to quad mode\n");
-	  break;
-	}
-      trace::printf ("Entered quad mode\n");
 
       // switch mode to memory mapped
       if (flash.enter_mem_mapped () == false)
@@ -221,13 +209,14 @@ test_qspi (void)
 	      sw.start ();
 	      if (flash.write_sector (j, pw, sector_size) == false)
 		{
-		  trace::printf ("Block write error\n");
+		  trace::printf ("Block write error (%d)\n", j);
 		  break;
 		}
 	      total_write += sw.stop ();
 #if defined M717
 	      red.turn_off ();
 #endif
+	      memset (pr, 0xAA, sector_size);
 
 	      // read block
 	      sw.start ();
@@ -239,11 +228,28 @@ test_qspi (void)
 	      total_read += sw.stop ();
 
 	      // compare data
+#if true
 	      if (memcmp (pw, pr, sector_size) != 0)
 		{
 		  trace::printf ("Compare error at block %d\n", j);
 		  break;
 		}
+#else
+	      int k;
+	      for (k = 0; k < sector_size; k++)
+		{
+		  if (*(pr + k) != *(pw + k))
+		    {
+		      trace::printf ("Compare error at block %d, count %d\n", j, k);
+		      for (i = 0; i < 16; i++)
+		      trace::printf ("%02X<->%02X  ", *(pw + k + i), *(pr + k + i));
+		      trace::putchar ('\n');
+		      break;
+		    }
+		}
+	      if (k != sector_size)
+	      break;
+#endif
 	    }
 
 	  // done, clean-up and exit
