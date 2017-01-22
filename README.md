@@ -2,7 +2,7 @@
 This is a QSPI serial flash driver for the STM32F7xx family of controllers.
 
 ## Version
-* 0.7 (11 Jan. 2017)
+* 0.8 (17 Jan. 2017)
 
 ## License
 * MIT
@@ -20,7 +20,7 @@ Note that the hardware initialisations (uController clock, peripherals clocks, e
 * https://github.com/micro-os-plus/eclipse-demo-projects/tree/master/f746gdiscovery-blinky-micro-os-plus
 * https://github.com/micro-os-plus/eclipse-demo-projects/tree/master/f746gdiscovery-blinky-micro-os-plus/cube-mx which details how to integrate the Cube-MX generated code into a uOS++ based project.
 
-The driver can be easily ported to other RTOSes, as it uses only a semaphore and a mutex. It has been tested on the Winbond W25Q128FV and Micrel/ST MT25QL128ABA flash chips, but support for other devices will be  added in the future.
+The driver was designed for the µOS++ ecosystem, but it can be easily ported to other RTOSes, as it uses only a semaphore and a mutex. It has been tested on the Winbond W25Q128FV and Micrel/ST MT25QL128ABA flash chips, but support for other devices will be  added in the future.
 
 ## Short theory of operation
 Most QSPI flash devices operate in two basic modes:
