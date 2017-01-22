@@ -72,41 +72,38 @@ qspi::power (bool state)
 bool
 qspi::initialize (void)
 {
-  bool result = false;
+  bool result;
 
-  if (qspi::read_JEDEC_ID ())
+  // Read flash device ID
+  if ((result = qspi::read_JEDEC_ID ()) == false)
     {
-      for (const qspi_manuf_t* pqm = qspi_manufacturers;
-	  pqm->manufacturer_ID != 0; pqm++)
-	{
-	  if (pqm->manufacturer_ID == manufacturer_ID_)
-	    {
-	      for (const qspi_device_t* pqd = pqm->devices; pqd->device_ID != 0;
-		  pqd++)
-		{
-		  if (pqd->device_ID == memory_type_)
-		    {
-		      pmanufacturer_ = pqm->manufacturer_name;
-		      pdevice_ = pqd;
-		      switch (manufacturer_ID_)
-			{
-			case MANUF_ID_MICRON:
-			  pimpl = new qspi_micron
-			    { };
-			  break;
+      // Flash device might be in deep sleep
+      qspi::sleep (false);
 
-			case MANUF_ID_WINBOND:
-			  pimpl = new qspi_winbond
-			    { };
-			  break;
-			}
-		      result = true;
-		    }
-		}
-	    }
+      // Reset and try reading ID again
+      if ((result = qspi::reset_chip ()) == true)
+	{
+	  result = qspi::read_JEDEC_ID ();
 	}
     }
+
+  // If all OK, switch flash device in quad mode
+  if (result == true)
+    result = enter_quad_mode ();
+
   return result;
+}
+
+/**
+ * @brief  Set flash device to default state.
+ * @return true if successful, false otherwise.
+ */
+bool
+qspi::uninitialize (void)
+{
+  pimpl = nullptr;
+  qspi::sleep (false);
+  return qspi::reset_chip ();
 }
 
 /**
@@ -145,13 +142,31 @@ qspi::read_JEDEC_ID (void)
 		  manufacturer_ID_ = buff[0];
 		  memory_type_ = buff[1] << 8;
 		  memory_type_ += buff[2];
-		  result = true;
+
+		  // Do we know this device?
+		  for (const qspi_manuf_t* pqm = qspi_manufacturers;
+		      pqm->manufacturer_ID != 0; pqm++)
+		    {
+		      if (pqm->manufacturer_ID == manufacturer_ID_)
+			{
+			  // Manufacturer found
+			  for (const qspi_device_t* pqd = pqm->devices;
+			      pqd->device_ID != 0; pqd++)
+			    {
+			      if (pqd->device_ID == memory_type_)
+				{
+				  // Device found, initialize class
+				  pmanufacturer_ = pqm->manufacturer_name;
+				  pdevice_ = pqd;
+				  pimpl = pqm->qspi_factory ();
+				  result = true;
+				  break;
+				}
+			    }
+			}
+		    }
 		}
 	    }
-	}
-      if (result == false)
-	{
-	  HAL_QSPI_Abort (hqspi_);
 	}
       mutex_.unlock ();
     }
@@ -219,7 +234,7 @@ qspi::enter_mem_mapped (void)
 	  sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
 	  sCommand.AddressMode = QSPI_ADDRESS_4_LINES;
 	  sCommand.DataMode = QSPI_DATA_4_LINES;
-	  sCommand.DummyCycles = pdevice_->dummy_cycles;
+	  sCommand.DummyCycles = pdevice_->dummy_cycles - 2; // Subtract alternate byte
 	  sCommand.Instruction = FAST_READ_QUAD_IN_OUT;
 
 	  sMemMappedCfg.TimeOutActivation = QSPI_TIMEOUT_COUNTER_DISABLE;
@@ -263,15 +278,25 @@ qspi::read (uint32_t address, uint8_t* buff, size_t count)
 	  sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
 	  sCommand.AddressMode = QSPI_ADDRESS_4_LINES;
 	  sCommand.DataMode = QSPI_DATA_4_LINES;
-	  sCommand.DummyCycles = pdevice_->dummy_cycles;
+	  sCommand.DummyCycles = pdevice_->dummy_cycles - 2; // Subtract alternate byte
 	  sCommand.Address = address;
 	  sCommand.NbData = count;
 	  sCommand.Instruction = FAST_READ_QUAD_IN_OUT;
 
+	  // Flush and clean the data cache to mitigate incoherence after
+	  // DMA transfers (DTCM RAM is not cached)
+	  if ((buff + count) >= (uint8_t *) SRAM1_BASE)
+	    {
+	      uint32_t *aligned_buff = (uint32_t *) (((uint32_t) (buff))
+		  & 0xFFFFFFE0);
+	      uint32_t aligned_count = (uint32_t) (count & 0xFFFFFFE0) + 32;
+	      SCB_CleanInvalidateDCache_by_Addr (aligned_buff, aligned_count);
+	    }
+
 	  // Initiate read and wait for the event
 	  if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
 	    {
-	      if (HAL_QSPI_Receive_IT (hqspi_, buff) == HAL_OK)
+	      if (HAL_QSPI_Receive_DMA (hqspi_, buff) == HAL_OK)
 		{
 		  if (semaphore_.timed_wait (QSPI_TIMEOUT) == rtos::result::ok)
 		    {
@@ -300,6 +325,16 @@ qspi::write (uint32_t address, uint8_t* buff, size_t count)
 
   if (pdevice_ != nullptr)
     {
+      // Clean the data cache to mitigate incoherence before DMA transfers
+      // (DTCM RAM is not cached)
+      if ((buff + count) >= (uint8_t *) SRAM1_BASE)
+	{
+	  uint32_t *aligned_buff = (uint32_t *) (((uint32_t) (buff))
+	      & 0xFFFFFFE0);
+	  uint32_t aligned_count = (uint32_t) (count & 0xFFFFFFE0) + 32;
+	  SCB_CleanDCache_by_Addr (aligned_buff, aligned_count);
+	}
+
       do
 	{
 	  in_block_count = 0x100 - (address & 0xFF);
@@ -309,18 +344,16 @@ qspi::write (uint32_t address, uint8_t* buff, size_t count)
 	    {
 	      in_block_count = (count > 0x100) ? 0x100 : count;
 	    }
-	  if (page_write (address, buff, in_block_count) == false)
+	  if ((result = page_write (address, buff, in_block_count)) == false)
 	    {
-	      result = false;
 	      break;
 	    }
 	  address += in_block_count;
 	  buff += in_block_count;
 	  count -= in_block_count;
 	}
-      while (count);
+      while (count > 0);
     }
-
   return result;
 }
 
@@ -363,25 +396,28 @@ qspi::page_write (uint32_t address, uint8_t* buff, size_t count)
 	  sCommand.NbData = count;
 	  if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
 	    {
-	      if (HAL_QSPI_Transmit (hqspi_, buff, QSPI_TIMEOUT) == HAL_OK)
+	      if (HAL_QSPI_Transmit_DMA (hqspi_, buff) == HAL_OK)
 		{
-		  // Set auto-polling and wait for the event
-		  sCommand.AddressMode = QSPI_ADDRESS_NONE;
-		  sCommand.DataMode = QSPI_DATA_4_LINES;
-		  sCommand.Instruction = READ_STATUS_REGISTER;
-		  sConfig.Match = 0;
-		  sConfig.Mask = 1;
-		  sConfig.MatchMode = QSPI_MATCH_MODE_AND;
-		  sConfig.StatusBytesSize = 1;
-		  sConfig.Interval = 0x10;
-		  sConfig.AutomaticStop = QSPI_AUTOMATIC_STOP_ENABLE;
-		  if (HAL_QSPI_AutoPolling_IT (hqspi_, &sCommand, &sConfig)
-		      == HAL_OK)
+		  if (semaphore_.timed_wait (QSPI_TIMEOUT) == rtos::result::ok)
 		    {
-		      if (semaphore_.timed_wait (QSPI_TIMEOUT)
-			  == rtos::result::ok)
+		      // Set auto-polling and wait for the event
+		      sCommand.AddressMode = QSPI_ADDRESS_NONE;
+		      sCommand.DataMode = QSPI_DATA_4_LINES;
+		      sCommand.Instruction = READ_STATUS_REGISTER;
+		      sConfig.Match = 0;
+		      sConfig.Mask = 1;
+		      sConfig.MatchMode = QSPI_MATCH_MODE_AND;
+		      sConfig.StatusBytesSize = 1;
+		      sConfig.Interval = 0x10;
+		      sConfig.AutomaticStop = QSPI_AUTOMATIC_STOP_ENABLE;
+		      if (HAL_QSPI_AutoPolling_IT (hqspi_, &sCommand, &sConfig)
+			  == HAL_OK)
 			{
-			  result = true;
+			  if (semaphore_.timed_wait (QSPI_TIMEOUT)
+			      == rtos::result::ok)
+			    {
+			      result = true;
+			    }
 			}
 		    }
 		}

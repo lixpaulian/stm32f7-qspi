@@ -36,6 +36,7 @@
 #include <cmsis-plus/diag/trace.h>
 
 #include "qspi-winbond.h"
+#include "qspi-descr.h"
 
 using namespace os;
 
@@ -90,7 +91,9 @@ qspi_winbond::enter_quad_mode (qspi* pq)
 		      if (HAL_QSPI_Command (pq->hqspi_, &sCommand,
 					    qspi::QSPI_TIMEOUT) == HAL_OK)
 			{
-			  datareg = 0x20; // Set to 6 dummy cycles (max 104 MHz)
+			  // Compute dummy cycles
+			  datareg = (pq->pdevice_->dummy_cycles / 2) - 1;
+			  datareg <<= 4;
 			  if (HAL_QSPI_Transmit (pq->hqspi_, &datareg,
 						 qspi::QSPI_TIMEOUT) == HAL_OK)
 			    {

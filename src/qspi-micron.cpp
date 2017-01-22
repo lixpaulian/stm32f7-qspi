@@ -36,6 +36,7 @@
 #include <cmsis-plus/diag/trace.h>
 
 #include "qspi-micron.h"
+#include "qspi-descr.h"
 
 using namespace os;
 
@@ -69,13 +70,15 @@ qspi_micron::enter_quad_mode (qspi* pq)
       if (HAL_QSPI_Command (pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT)
 	  == HAL_OK)
 	{
-	  // Write enhanced volatile register (enable Quad)
+	  // Write enhanced volatile register
 	  sCommand.DataMode = QSPI_DATA_1_LINE;
 	  sCommand.Instruction = WRITE_VOLATILE_STATUS_REGISTER;
 	  if (HAL_QSPI_Command (pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT)
 	      == HAL_OK)
 	    {
-	      datareg = 0x8B;
+	      // Compute dummy cycles
+	      datareg = (pq->pdevice_->dummy_cycles << 4);
+	      datareg |= 0xB;
 	      if (HAL_QSPI_Transmit (pq->hqspi_, &datareg, qspi::QSPI_TIMEOUT)
 		  == HAL_OK)
 		{
@@ -89,7 +92,7 @@ qspi_micron::enter_quad_mode (qspi* pq)
 		      if (HAL_QSPI_Command (pq->hqspi_, &sCommand,
 					    qspi::QSPI_TIMEOUT) == HAL_OK)
 			{
-			  datareg = 0x6F;// 8 dummy cycles (max 106 MHz), XIP off
+			  datareg = 0x6F;	// Enable quad protocol
 			  if (HAL_QSPI_Transmit (pq->hqspi_, &datareg,
 						 qspi::QSPI_TIMEOUT) == HAL_OK)
 			    {
