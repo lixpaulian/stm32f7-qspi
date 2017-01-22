@@ -49,6 +49,7 @@ typedef struct qspi_manuf_s
   uint8_t manufacturer_ID;
   const char* manufacturer_name;
   const qspi_device_t* devices;
+  class qspi_impl* (*qspi_factory)();
 } qspi_manuf_t;
 
 extern const qspi_manuf_t qspi_manufacturers[];
