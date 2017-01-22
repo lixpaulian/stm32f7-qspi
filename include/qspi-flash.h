@@ -53,13 +53,13 @@ public:
   power (bool state);
 
   bool
+  sleep (bool state);
+
+  bool
   initialize (void);
 
   bool
-  enter_quad_mode (void);
-
-  bool
-  sleep (bool state);
+  uninitialize (void);
 
   bool
   enter_mem_mapped (void);
@@ -114,10 +114,7 @@ public:
 
 protected:
   bool
-  page_write (uint32_t address, uint8_t* buff, size_t count);
-
-  bool
-  read_JEDEC_ID (void);
+  enter_quad_mode (void);
 
   // Standard command sub-set (common for all flash chips)
   static constexpr uint8_t JEDEC_ID = 0x9F;
@@ -160,10 +157,16 @@ protected:
 
 private:
   bool
+  page_write (uint32_t address, uint8_t* buff, size_t count);
+
+  bool
+  read_JEDEC_ID (void);
+
+  bool
   erase (uint32_t address, uint8_t which);
 
   static constexpr uint8_t QSPI_VERSION_MAJOR = 0;
-  static constexpr uint8_t QSPI_VERSION_MINOR = 7;
+  static constexpr uint8_t QSPI_VERSION_MINOR = 8;
 
   class qspi_impl* pimpl = nullptr;
   uint8_t manufacturer_ID_ = 0;
