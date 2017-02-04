@@ -117,7 +117,7 @@ test_qspi (void)
       flash.power (true);
 
       // read memory parameters and initialize system
-      if (flash.initialize () == false)
+      if (flash.initialize () != qspi::ok)
 	{
 	  trace::printf ("Failed to initialize\n");
 	  break;
@@ -136,7 +136,7 @@ test_qspi (void)
 //      break;
 
       // switch mode to memory mapped
-      if (flash.enter_mem_mapped () == false)
+      if (flash.enter_mem_mapped () != qspi::ok)
 	{
 	  trace::printf ("Failed enter memory mapped mode\n");
 	  break;
@@ -152,7 +152,7 @@ test_qspi (void)
       trace::printf ("Checked if flash is erased in %.3f ms (%d)\n",
 		     sw.stop () / (float) 1000, i);
 
-      if (flash.exit_mem_mapped () == false)
+      if (flash.exit_mem_mapped () != qspi::ok)
 	{
 	  trace::printf ("Failed to exit from memory mapped mode\n");
 	  break;
@@ -172,7 +172,7 @@ test_qspi (void)
 	  red.turn_on ();
 #endif
 	  sw.start ();
-	  if (flash.erase_chip () == false)
+	  if (flash.erase_chip () != qspi::ok)
 	    {
 	      trace::printf ("Failed to erase flash chip\r\n");
 	      break;
@@ -207,7 +207,7 @@ test_qspi (void)
 	      red.turn_on ();
 #endif
 	      sw.start ();
-	      if (flash.write_sector (j, pw, sector_size) == false)
+	      if (flash.write_sector (j, pw, sector_size) != qspi::ok)
 		{
 		  trace::printf ("Block write error (%d)\n", j);
 		  break;
@@ -220,7 +220,7 @@ test_qspi (void)
 
 	      // read block
 	      sw.start ();
-	      if (flash.read_sector (j, pr, sector_size) == false)
+	      if (flash.read_sector (j, pr, sector_size) != qspi::ok)
 		{
 		  trace::printf ("Block read error\n");
 		  break;
@@ -271,7 +271,7 @@ test_qspi (void)
     }
   while (false);
 
-  if (flash.sleep (true) == false)
+  if (flash.sleep (true) != qspi::ok)
     {
       trace::printf ("Failed to switch flash chip into deep sleep\n");
     }
