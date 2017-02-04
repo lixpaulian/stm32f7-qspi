@@ -38,7 +38,7 @@ class qspi_micron : public qspi_impl
 {
 
 public:
-  virtual bool
+  virtual qspi::qspi_result_t
   enter_quad_mode (qspi* pq) override;
 
 private:

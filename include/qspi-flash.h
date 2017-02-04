@@ -46,52 +46,60 @@ public:
 
   ~qspi () = default;
 
+  enum qspi_result_t {
+    ok = 0,
+    error = HAL_ERROR,
+    busy = HAL_BUSY,
+    timeout = HAL_TIMEOUT,
+    type_not_found,
+  };
+
   void
   get_version (uint8_t& version_major, uint8_t& version_minor);
 
   void
   power (bool state);
 
-  bool
+  qspi_result_t
   sleep (bool state);
 
-  bool
+  qspi_result_t
   initialize (void);
 
-  bool
+  qspi_result_t
   uninitialize (void);
 
-  bool
+  qspi_result_t
   enter_mem_mapped (void);
 
-  bool
+  qspi_result_t
   exit_mem_mapped (void);
 
-  bool
+  qspi_result_t
   read (uint32_t address, uint8_t* buff, size_t count);
 
-  bool
+  qspi_result_t
   write (uint32_t address, uint8_t* buff, size_t count);
 
-  bool
+  qspi_result_t
   read_sector (uint32_t sector, uint8_t* buff, size_t count);
 
-  bool
+  qspi_result_t
   write_sector (uint32_t sector, uint8_t* buff, size_t count);
 
-  bool
+  qspi_result_t
   erase_sector (uint32_t sector);
 
-  bool
+  qspi_result_t
   erase_block32K (uint32_t address);
 
-  bool
+  qspi_result_t
   erase_block64K (uint32_t address);
 
-  bool
+  qspi_result_t
   erase_chip (void);
 
-  bool
+  qspi_result_t
   reset_chip (void);
 
   const char*
@@ -113,7 +121,7 @@ public:
   friend class qspi_micron;
 
 protected:
-  bool
+  qspi_result_t
   enter_quad_mode (void);
 
   // Standard command sub-set (common for all flash chips)
@@ -156,17 +164,17 @@ protected:
     { "qspi" };
 
 private:
-  bool
+  qspi_result_t
   page_write (uint32_t address, uint8_t* buff, size_t count);
 
-  bool
+  qspi_result_t
   read_JEDEC_ID (void);
 
-  bool
+  qspi_result_t
   erase (uint32_t address, uint8_t which);
 
   static constexpr uint8_t QSPI_VERSION_MAJOR = 0;
-  static constexpr uint8_t QSPI_VERSION_MINOR = 8;
+  static constexpr uint8_t QSPI_VERSION_MINOR = 9;
 
   class qspi_impl* pimpl = nullptr;
   uint8_t manufacturer_ID_ = 0;
@@ -186,7 +194,7 @@ public:
   virtual
   ~qspi_impl () = default;
 
-  virtual bool
+  virtual qspi::qspi_result_t
   enter_quad_mode (qspi* pq) = 0;
 
 };
@@ -198,31 +206,31 @@ qspi::get_version (uint8_t& version_major, uint8_t& version_minor)
   version_minor = QSPI_VERSION_MINOR;
 }
 
-inline bool
+inline qspi::qspi_result_t
 qspi::enter_quad_mode (void)
 {
-  return (pimpl == nullptr) ? false : pimpl->enter_quad_mode (this);
+  return (pimpl == nullptr) ? error : pimpl->enter_quad_mode (this);
 }
 
-inline bool
+inline qspi::qspi_result_t
 qspi::exit_mem_mapped (void)
 {
-  return (HAL_QSPI_Abort (hqspi_) == HAL_OK);
+  return ((qspi::qspi_result_t) (HAL_QSPI_Abort (hqspi_)));
 }
 
-inline bool
+inline qspi::qspi_result_t
 qspi::erase_block32K (uint32_t address)
 {
   return erase (address, BLOCK_32K_ERASE);
 }
 
-inline bool
+inline qspi::qspi_result_t
 qspi::erase_block64K (uint32_t address)
 {
   return erase (address, BLOCK_64K_ERASE);
 }
 
-inline bool
+inline qspi::qspi_result_t
 qspi::erase_chip (void)
 {
   return erase (0, CHIP_ERASE);

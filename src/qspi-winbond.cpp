@@ -44,11 +44,11 @@ using namespace os;
  * @brief  Switch the flash chip to quad mode.
  * @return true if successful, false otherwise.
  */
-bool
+qspi::qspi_result_t
 qspi_winbond::enter_quad_mode (qspi* pq)
 {
   QSPI_CommandTypeDef sCommand;
-  bool result = false;
+  qspi::qspi_result_t result = qspi::busy;
   uint8_t datareg;
 
   if (pq->mutex_.timed_lock (qspi::QSPI_TIMEOUT) == rtos::result::ok)
@@ -67,38 +67,39 @@ qspi_winbond::enter_quad_mode (qspi* pq)
 
       // Enable volatile write
       sCommand.Instruction = VOLATILE_SR_WRITE_ENABLE;
-      if (HAL_QSPI_Command (pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT)
-	  == HAL_OK)
+      if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (pq->hqspi_,
+							    &sCommand,
+							    qspi::QSPI_TIMEOUT))
+	  == qspi::ok)
 	{
-	  // Write status register 2 (enable QE)
+	  // Write status register 2 (enable Quad Mode)
 	  sCommand.DataMode = QSPI_DATA_1_LINE;
 	  sCommand.Instruction = WRITE_STATUS_REGISTER_2;
-	  if (HAL_QSPI_Command (pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT)
-	      == HAL_OK)
+	  if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (
+	      pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT)) == qspi::ok)
 	    {
 	      datareg = 2;
-	      if (HAL_QSPI_Transmit (pq->hqspi_, &datareg, qspi::QSPI_TIMEOUT)
-		  == HAL_OK)
+	      if ((result = (qspi::qspi_result_t) HAL_QSPI_Transmit (
+		  pq->hqspi_, &datareg, qspi::QSPI_TIMEOUT)) == qspi::ok)
 		{
 		  sCommand.DataMode = QSPI_DATA_NONE;
 		  sCommand.Instruction = ENTER_QUAD_MODE;
-		  if (HAL_QSPI_Command (pq->hqspi_, &sCommand,
-					qspi::QSPI_TIMEOUT) == HAL_OK)
+		  if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (
+		      pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT))
+		      == qspi::ok)
 		    {
 		      sCommand.DataMode = QSPI_DATA_4_LINES;
 		      sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
 		      sCommand.Instruction = SET_READ_PARAMETERS;
-		      if (HAL_QSPI_Command (pq->hqspi_, &sCommand,
-					    qspi::QSPI_TIMEOUT) == HAL_OK)
+		      if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (
+			  pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT))
+			  == qspi::ok)
 			{
-			  // Compute dummy cycles
+			  // Compute and set number of dummy cycles
 			  datareg = (pq->pdevice_->dummy_cycles / 2) - 1;
 			  datareg <<= 4;
-			  if (HAL_QSPI_Transmit (pq->hqspi_, &datareg,
-						 qspi::QSPI_TIMEOUT) == HAL_OK)
-			    {
-			      result = true;
-			    }
+			  result = (qspi::qspi_result_t) HAL_QSPI_Transmit (
+			      pq->hqspi_, &datareg, qspi::QSPI_TIMEOUT);
 			}
 		    }
 		}

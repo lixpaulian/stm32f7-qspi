@@ -53,7 +53,7 @@ qspi::qspi (QSPI_HandleTypeDef* hqspi)
 
 /**
  * @brief  Control the power state of the QSPI device.
- * @param  state: new state, either power_on, power_off or power_sleep.
+ * @param  state: new state, either true (power on) or false (power off).
  */
 void
 qspi::power (bool state)
@@ -66,29 +66,29 @@ qspi::power (bool state)
 
 /**
  * @brief  Read the flash chip ID and initialize the internal structures accordingly.
- * @return true if successful, false if the flash could not be identified or it is
- * 	not supported by the driver.
+ * @return qspi_ok if successful, or a qspi error if the flash could not be identified
+ * 	 or it is not supported by the driver.
  */
-bool
+qspi::qspi_result_t
 qspi::initialize (void)
 {
-  bool result;
+  qspi::qspi_result_t result;
 
   // Read flash device ID
-  if ((result = qspi::read_JEDEC_ID ()) == false)
+  if ((result = qspi::read_JEDEC_ID ()) != ok)
     {
       // Flash device might be in deep sleep
       qspi::sleep (false);
 
       // Reset and try reading ID again
-      if ((result = qspi::reset_chip ()) == true)
+      if ((result = qspi::reset_chip ()) == ok)
 	{
 	  result = qspi::read_JEDEC_ID ();
 	}
     }
 
   // If all OK, switch flash device in quad mode
-  if (result == true)
+  if (result == ok)
     result = enter_quad_mode ();
 
   return result;
@@ -96,9 +96,9 @@ qspi::initialize (void)
 
 /**
  * @brief  Set flash device to default state.
- * @return true if successful, false otherwise.
+ * @return qspi_ok if successful, or a qspi error otherwise.
  */
-bool
+qspi::qspi_result_t
 qspi::uninitialize (void)
 {
   pimpl = nullptr;
@@ -108,12 +108,12 @@ qspi::uninitialize (void)
 
 /**
  * @brief  Read the memory parameters (manufacturer and type).
- * @return true if successful, false otherwise.
+ * @return qspi_ok if successful, or a qspi error otherwise.
  */
-bool
+qspi::qspi_result_t
 qspi::read_JEDEC_ID (void)
 {
-  bool result = false;
+  qspi::qspi_result_t result = error;
   uint8_t buff[3];
   QSPI_CommandTypeDef sCommand;
 
@@ -133,9 +133,12 @@ qspi::read_JEDEC_ID (void)
       sCommand.Instruction = JEDEC_ID;
 
       // Initiate read and wait for the event
-      if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
+      if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
+							    QSPI_TIMEOUT))
+	  == ok)
 	{
-	  if (HAL_QSPI_Receive_IT (hqspi_, buff) == HAL_OK)
+	  if ((result = (qspi::qspi_result_t) HAL_QSPI_Receive_IT (hqspi_, buff))
+	      == ok)
 	    {
 	      if (semaphore_.timed_wait (QSPI_TIMEOUT) == rtos::result::ok)
 		{
@@ -144,6 +147,7 @@ qspi::read_JEDEC_ID (void)
 		  memory_type_ += buff[2];
 
 		  // Do we know this device?
+		  result = type_not_found;
 		  for (const qspi_manuf_t* pqm = qspi_manufacturers;
 		      pqm->manufacturer_ID != 0; pqm++)
 		    {
@@ -159,16 +163,24 @@ qspi::read_JEDEC_ID (void)
 				  pmanufacturer_ = pqm->manufacturer_name;
 				  pdevice_ = pqd;
 				  pimpl = pqm->qspi_factory ();
-				  result = true;
+				  result = ok;
 				  break;
 				}
 			    }
 			}
 		    }
 		}
+	      else
+		{
+		  result = timeout;
+		}
 	    }
 	}
       mutex_.unlock ();
+    }
+  else
+    {
+      result = busy;
     }
   return result;
 }
@@ -176,12 +188,12 @@ qspi::read_JEDEC_ID (void)
 /**
  * @brief  Switch the flash chip into or out of deep sleep.
  * @param  state: if true, enter deep sleep; if false, exit deep sleep.
- * @return true if successful, false otherwise.
+ * @return qspi_ok if successful, an error otherwise.
  */
-bool
+qspi::qspi_result_t
 qspi::sleep (bool state)
 {
-  bool result = false;
+  qspi::qspi_result_t result = error;
   QSPI_CommandTypeDef sCommand;
 
   if (mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
@@ -199,10 +211,8 @@ qspi::sleep (bool state)
 
       // Enable/disable deep sleep
       sCommand.Instruction = state ? POWER_DOWN : RELEASE_POWER_DOWN;
-      if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
-	{
-	  result = true;
-	}
+      result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
+						       QSPI_TIMEOUT);
       mutex_.unlock ();
     }
   return result;
@@ -211,12 +221,12 @@ qspi::sleep (bool state)
 /**
  * @brief  Map the flash to the addressing space of the controller, starting at
  * 	address 0x90000000.
- * @return true if successful, false otherwise.
+ * @return qspi_ok if successful, false otherwise.
  */
-bool
+qspi::qspi_result_t
 qspi::enter_mem_mapped (void)
 {
-  bool result = false;
+  qspi::qspi_result_t result = error;
   QSPI_CommandTypeDef sCommand;
   QSPI_MemoryMappedTypeDef sMemMappedCfg;
 
@@ -239,12 +249,14 @@ qspi::enter_mem_mapped (void)
 
 	  sMemMappedCfg.TimeOutActivation = QSPI_TIMEOUT_COUNTER_DISABLE;
 
-	  if (HAL_QSPI_MemoryMapped (hqspi_, &sCommand, &sMemMappedCfg)
-	      == HAL_OK)
-	    {
-	      result = true;
-	    }
+	  result = (qspi::qspi_result_t) HAL_QSPI_MemoryMapped (hqspi_,
+								&sCommand,
+								&sMemMappedCfg);
 	  mutex_.unlock ();
+	}
+      else
+	{
+	  result = busy;
 	}
     }
   return result;
@@ -255,12 +267,12 @@ qspi::enter_mem_mapped (void)
  * @param  address: start address in flash where to read from.
  * @param  buff: buffer where to copy data to.
  * @param  count: amount of data to be retrieved from flash.
- * @return true if successful, false otherwise.
+ * @return qspi_ok if successful, a qspi error otherwise.
  */
-bool
+qspi::qspi_result_t
 qspi::read (uint32_t address, uint8_t* buff, size_t count)
 {
-  bool result = false;
+  qspi::qspi_result_t result = error;
   QSPI_CommandTypeDef sCommand;
 
   if (pdevice_ != nullptr)
@@ -294,17 +306,25 @@ qspi::read (uint32_t address, uint8_t* buff, size_t count)
 	    }
 
 	  // Initiate read and wait for the event
-	  if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
+	  if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_,
+								&sCommand,
+								QSPI_TIMEOUT))
+	      == ok)
 	    {
-	      if (HAL_QSPI_Receive_DMA (hqspi_, buff) == HAL_OK)
+	      if ((result = (qspi::qspi_result_t) HAL_QSPI_Receive_DMA (hqspi_,
+									buff))
+		  == ok)
 		{
-		  if (semaphore_.timed_wait (QSPI_TIMEOUT) == rtos::result::ok)
-		    {
-		      result = true;
-		    }
+		  result =
+		      (semaphore_.timed_wait (QSPI_TIMEOUT) == rtos::result::ok) ?
+			  ok : timeout;
 		}
 	    }
 	  mutex_.unlock ();
+	}
+      else
+	{
+	  result = busy;
 	}
     }
   return result;
@@ -315,12 +335,12 @@ qspi::read (uint32_t address, uint8_t* buff, size_t count)
  * @param  address: start address in flash where to write data to.
  * @param  buff: source data to be written.
  * @param  count: amount of data to be written.
- * @return true if successful, false otherwise.
+ * @return qspi_ok if successful, a qspi error otherwise.
  */
-bool
+qspi::qspi_result_t
 qspi::write (uint32_t address, uint8_t* buff, size_t count)
 {
-  bool result = true;
+  qspi::qspi_result_t result = error;
   size_t in_block_count;
 
   if (pdevice_ != nullptr)
@@ -344,7 +364,7 @@ qspi::write (uint32_t address, uint8_t* buff, size_t count)
 	    {
 	      in_block_count = (count > 0x100) ? 0x100 : count;
 	    }
-	  if ((result = page_write (address, buff, in_block_count)) == false)
+	  if ((result = page_write (address, buff, in_block_count)) != ok)
 	    {
 	      break;
 	    }
@@ -362,12 +382,12 @@ qspi::write (uint32_t address, uint8_t* buff, size_t count)
  * @param  address: address of the page in flash.
  * @param  buff: buffer of the source data.
  * @param  count: number of bytes to be written (max 256).
- * @return true if successful, false otherwise.
+ * @return qspi_ok if successful, a qspi error otherwise.
  */
-bool
+qspi::qspi_result_t
 qspi::page_write (uint32_t address, uint8_t* buff, size_t count)
 {
-  bool result = false;
+  qspi::qspi_result_t result = error;
   QSPI_CommandTypeDef sCommand;
   QSPI_AutoPollingTypeDef sConfig;
 
@@ -386,7 +406,9 @@ qspi::page_write (uint32_t address, uint8_t* buff, size_t count)
 
       // Enable write
       sCommand.Instruction = WRITE_ENABLE;
-      if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
+      if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
+							    QSPI_TIMEOUT))
+	  == ok)
 	{
 	  // Initiate write
 	  sCommand.Instruction = PAGE_PROGRAM;
@@ -394,9 +416,14 @@ qspi::page_write (uint32_t address, uint8_t* buff, size_t count)
 	  sCommand.DataMode = QSPI_DATA_4_LINES;
 	  sCommand.Address = address;
 	  sCommand.NbData = count;
-	  if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
+	  if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_,
+								&sCommand,
+								QSPI_TIMEOUT))
+	      == ok)
 	    {
-	      if (HAL_QSPI_Transmit_DMA (hqspi_, buff) == HAL_OK)
+	      if ((result = (qspi::qspi_result_t) HAL_QSPI_Transmit_DMA (hqspi_,
+									 buff))
+		  == ok)
 		{
 		  if (semaphore_.timed_wait (QSPI_TIMEOUT) == rtos::result::ok)
 		    {
@@ -410,20 +437,27 @@ qspi::page_write (uint32_t address, uint8_t* buff, size_t count)
 		      sConfig.StatusBytesSize = 1;
 		      sConfig.Interval = 0x10;
 		      sConfig.AutomaticStop = QSPI_AUTOMATIC_STOP_ENABLE;
-		      if (HAL_QSPI_AutoPolling_IT (hqspi_, &sCommand, &sConfig)
-			  == HAL_OK)
+		      if ((result =
+			  (qspi::qspi_result_t) HAL_QSPI_AutoPolling_IT (
+			      hqspi_, &sCommand, &sConfig)) == ok)
 			{
-			  if (semaphore_.timed_wait (QSPI_TIMEOUT)
-			      == rtos::result::ok)
-			    {
-			      result = true;
-			    }
+			  result =
+			      (semaphore_.timed_wait (QSPI_TIMEOUT)
+				  == rtos::result::ok) ? ok : timeout;
 			}
+		    }
+		  else
+		    {
+		      result = timeout;
 		    }
 		}
 	    }
 	}
       mutex_.unlock ();
+    }
+  else
+    {
+      result = busy;
     }
   return result;
 }
@@ -433,12 +467,12 @@ qspi::page_write (uint32_t address, uint8_t* buff, size_t count)
  * @param  address: address of the block to be erased.
  * @param  which: command to erase, can be either SECTOR_ERASE, BLOCK_32K_ERASE,
  * 	BLOCK_64K_ERASE or CHIP_ERASE.
- * @return true if successful, false otherwise.
+ * @return qspi_ok if successful, or a qspi error otherwise.
  */
-bool
+qspi::qspi_result_t
 qspi::erase (uint32_t address, uint8_t which)
 {
-  bool result = false;
+  qspi::qspi_result_t result = error;
   QSPI_CommandTypeDef sCommand;
   QSPI_AutoPollingTypeDef sConfig;
 
@@ -459,7 +493,10 @@ qspi::erase (uint32_t address, uint8_t which)
 
 	  // Enable write
 	  sCommand.Instruction = WRITE_ENABLE;
-	  if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
+	  if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_,
+								&sCommand,
+								QSPI_TIMEOUT))
+	      == ok)
 	    {
 	      // Initiate erase
 	      sCommand.Instruction = which;
@@ -467,7 +504,8 @@ qspi::erase (uint32_t address, uint8_t which)
 		  QSPI_ADDRESS_4_LINES;
 	      sCommand.DataMode = QSPI_DATA_NONE;
 	      sCommand.Address = address;
-	      if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
+	      if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (
+		  hqspi_, &sCommand, QSPI_TIMEOUT)) == ok)
 		{
 		  // Set auto-polling and wait for the event
 		  sCommand.Instruction = READ_STATUS_REGISTER;
@@ -479,19 +517,22 @@ qspi::erase (uint32_t address, uint8_t which)
 		  sConfig.StatusBytesSize = 1;
 		  sConfig.Interval = 0x10;
 		  sConfig.AutomaticStop = QSPI_AUTOMATIC_STOP_ENABLE;
-		  if (HAL_QSPI_AutoPolling_IT (hqspi_, &sCommand, &sConfig)
-		      == HAL_OK)
+		  if ((result = (qspi::qspi_result_t) HAL_QSPI_AutoPolling_IT (
+		      hqspi_, &sCommand, &sConfig)) == ok)
 		    {
-		      if (semaphore_.timed_wait (
-			  (which == CHIP_ERASE) ? QSPI_CHIP_ERASE_TIMEOUT : //
-			      QSPI_ERASE_TIMEOUT) == rtos::result::ok)
-			{
-			  result = true;
-			}
+		      result =
+			  (semaphore_.timed_wait (
+			      (which == CHIP_ERASE) ? QSPI_CHIP_ERASE_TIMEOUT : //
+				  QSPI_ERASE_TIMEOUT) == rtos::result::ok) ?
+			      ok : timeout;
 		    }
 		}
 	    }
 	  mutex_.unlock ();
+	}
+      else
+	{
+	  result = busy;
 	}
     }
   return result;
@@ -502,9 +543,9 @@ qspi::erase (uint32_t address, uint8_t which)
  * @param  sector: sector number to read from.
  * @param  buff: buffer to receive the data from flash.
  * @param  count: number of bytes to read (buffer should be large enough).
- * @return true if successful, false otherwise.
+ * @return qspi_ok if successful, or a qspi error otherwise.
  */
-bool
+qspi::qspi_result_t
 qspi::read_sector (uint32_t sector, uint8_t* buff, size_t count)
 {
   return read (sector * pdevice_->sector_size, buff, count);
@@ -515,9 +556,9 @@ qspi::read_sector (uint32_t sector, uint8_t* buff, size_t count)
  * @param  sector: sector number to write to.
  * @param  buff: buffer containing the data to be written to flash.
  * @param  count: number of bytes to be written.
- * @return true if successful, false otherwise.
+ * @return qspi_ok if successful, or a qspi error otherwise.
  */
-bool
+qspi::qspi_result_t
 qspi::write_sector (uint32_t sector, uint8_t* buff, size_t count)
 {
   return write (sector * pdevice_->sector_size, buff, count);
@@ -526,9 +567,9 @@ qspi::write_sector (uint32_t sector, uint8_t* buff, size_t count)
 /**
  * @brief  Erase sector.
  * @param  sector: sector to be erased.
- * @return true if successful, false otherwise.
+ * @return qspi_ok if successful, or a qspi error otherwise.
  */
-bool
+qspi::qspi_result_t
 qspi::erase_sector (uint32_t sector)
 {
   return erase (sector * pdevice_->sector_size, SECTOR_ERASE);
@@ -536,12 +577,12 @@ qspi::erase_sector (uint32_t sector)
 
 /**
  * @brief  Software reset the flash chip.
- * @return true if successful, false otherwise.
+ * @return qspi_ok if successful, or a qspi error otherwise.
  */
-bool
+qspi::qspi_result_t
 qspi::reset_chip (void)
 {
-  bool result = false;
+  qspi::qspi_result_t result = busy;
   QSPI_CommandTypeDef sCommand;
 
   if (mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
@@ -559,14 +600,14 @@ qspi::reset_chip (void)
 
       // Enable reset
       sCommand.Instruction = RESET_ENABLE;
-      if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
+      if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
+							    QSPI_TIMEOUT))
+	  == ok)
 	{
 	  // Send reset command
 	  sCommand.Instruction = RESET_DEVICE;
-	  if (HAL_QSPI_Command (hqspi_, &sCommand, QSPI_TIMEOUT) == HAL_OK)
-	    {
-	      result = true;
-	    }
+	  result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
+							   QSPI_TIMEOUT);
 	}
       mutex_.unlock ();
     }
