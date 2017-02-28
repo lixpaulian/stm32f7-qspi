@@ -173,8 +173,8 @@ private:
   qspi_result_t
   erase (uint32_t address, uint8_t which);
 
-  static constexpr uint8_t QSPI_VERSION_MAJOR = 0;
-  static constexpr uint8_t QSPI_VERSION_MINOR = 9;
+  static constexpr uint8_t QSPI_VERSION_MAJOR = 1;
+  static constexpr uint8_t QSPI_VERSION_MINOR = 0;
 
   class qspi_impl* pimpl = nullptr;
   uint8_t manufacturer_ID_ = 0;
