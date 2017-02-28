@@ -31,6 +31,7 @@
  * Test the qspi driver functionality.
  */
 
+
 #include <stdio.h>
 #include <stdint.h>
 #include <cmsis-plus/rtos/os.h>
@@ -38,9 +39,13 @@
 
 #include "qspi-flash.h"
 #include "test-qspi.h"
+#include "test-qspi-config.h"
+
 #if defined M717
 #include "io.h"
 #endif
+
+#if TEST_CPLUSPLUS_API == true
 
 #define TEST_VERBOSE false
 
@@ -174,7 +179,7 @@ test_qspi (void)
 	  sw.start ();
 	  if (flash.erase_chip () != qspi::ok)
 	    {
-	      trace::printf ("Failed to erase flash chip\r\n");
+	      trace::printf ("Failed to erase flash chip\n");
 	      break;
 	    }
 	  trace::printf ("Erased in %.2f s\n", sw.stop () / (float) 1000000);
@@ -284,4 +289,6 @@ test_qspi (void)
 
   trace::printf ("Exiting flash tests.\n");
 }
+
+#endif
 
