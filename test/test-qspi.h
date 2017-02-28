@@ -30,8 +30,14 @@
 #ifndef TEST_TEST_QSPI_H_
 #define TEST_TEST_QSPI_H_
 
+#include "test-qspi-config.h"
+
+#if TEST_CPLUSPLUS_API == true
+
 void
 test_qspi (void);
+
+#endif
 
 class stopwatch
 {
