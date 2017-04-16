@@ -46,13 +46,13 @@ public:
 
   ~qspi () = default;
 
-  enum qspi_result_t {
-    ok = 0,
+  typedef enum {
+    ok = HAL_OK,                // HAL errors
     error = HAL_ERROR,
     busy = HAL_BUSY,
     timeout = HAL_TIMEOUT,
-    type_not_found,
-  };
+    type_not_found = 10,        // qspi specific errors
+  } qspi_result_t;
 
   void
   get_version (uint8_t& version_major, uint8_t& version_minor);
@@ -242,6 +242,6 @@ qspi::get_manufacturer (void)
   return pmanufacturer_;
 }
 
-#endif
+#endif // (__cplusplus)
 
 #endif /* QSPI_FLASH_H_ */
