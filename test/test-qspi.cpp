@@ -133,8 +133,8 @@ test_qspi (void)
       uint8_t version_major, version_minor;
 
       flash.get_version (version_major, version_minor);
-      trace::printf ("Driver version: %d.%d\n", version_major, version_minor);
-      trace::printf ("Manufacturer: %s, type: %s, sector size: %d bytes, "
+      trace::printf ("QSPI driver version: %d.%d\n", version_major, version_minor);
+      trace::printf ("Flash chip manufacturer: %s, type: %s, sector size: %d bytes, "
 		     "sector count: %d\n",
 		     flash.get_manufacturer (), flash.get_memory_type (),
 		     sector_size, sector_count);
