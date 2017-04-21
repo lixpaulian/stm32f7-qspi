@@ -16,9 +16,9 @@ The driver depends on the following software packages:
 * STM32F7xx HAL Library (https://github.com/xpacks/stm32f7-hal)
 * uOS++ (https://github.com/micro-os-plus/micro-os-plus-iii)
 
-Note that the hardware initialisations (uController clock, peripherals clocks, etc.) must be separately performed, normaly in, or called from the initialize_hardware.c file of a gnuarmeclipse project. You can do this using the MX-Cube generator from ST. You may find helpful to check the following projects as references:
+Note that the hardware initialisations (uController clock, peripherals clocks, etc.) must be separately performed, normaly in, or called from the initialize_hardware.c file of a gnuarmeclipse project. You can do this using the CubeMX generator from ST. You may find helpful to check the following projects as references:
 * https://github.com/micro-os-plus/eclipse-demo-projects/tree/master/f746gdiscovery-blinky-micro-os-plus
-* https://github.com/micro-os-plus/eclipse-demo-projects/tree/master/f746gdiscovery-blinky-micro-os-plus/cube-mx which details how to integrate the Cube-MX generated code into a uOS++ based project.
+* https://github.com/micro-os-plus/eclipse-demo-projects/tree/master/f746gdiscovery-blinky-micro-os-plus/cube-mx which details how to integrate the CubeMX generated code into a uOS++ based project.
 
 The driver was designed for the µOS++ ecosystem, but it can be easily ported to other RTOSes, as it uses only a semaphore and a mutex. It has been tested on the Winbond W25Q128FV and Micrel/ST MT25QL128ABA flash chips, but support for other devices will be  added in the future.
 
