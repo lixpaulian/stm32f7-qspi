@@ -1,7 +1,7 @@
 /*
  * qspi-flash.h
  *
- * Copyright (c) 2016, 2017 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2016-2018 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -46,7 +46,8 @@ public:
 
   ~qspi () = default;
 
-  typedef enum {
+  typedef enum
+  {
     ok = HAL_OK,                // HAL errors
     error = HAL_ERROR,
     busy = HAL_BUSY,
@@ -152,10 +153,12 @@ protected:
   static constexpr uint8_t FAST_READ_QUAD_OUT = 0x6B;
   static constexpr uint8_t FAST_READ_QUAD_IN_OUT = 0xEB;
 
-  // Some timeouts; all timeouts are in # of uOS++ ticks (normally 1 ms)
-  static constexpr uint32_t QSPI_TIMEOUT = 100;
-  static constexpr uint32_t QSPI_ERASE_TIMEOUT = 2000;
-  static constexpr uint32_t QSPI_CHIP_ERASE_TIMEOUT = 200000;
+  // Some timeouts
+  static constexpr uint32_t one_ms = 1000 / os::rtos::sysclock.frequency_hz;
+  static constexpr uint32_t one_sec = 1000 * one_ms;
+  static constexpr uint32_t TIMEOUT = 100 * one_ms;
+  static constexpr uint32_t ERASE_TIMEOUT = 2 * one_sec;
+  static constexpr uint32_t CHIP_ERASE_TIMEOUT = 200 * one_sec;
 
   QSPI_HandleTypeDef* hqspi_;
   os::rtos::semaphore_binary semaphore_
@@ -173,8 +176,8 @@ private:
   qspi_result_t
   erase (uint32_t address, uint8_t which);
 
-  static constexpr uint8_t QSPI_VERSION_MAJOR = 1;
-  static constexpr uint8_t QSPI_VERSION_MINOR = 0;
+  static constexpr uint8_t VERSION_MAJOR = 1;
+  static constexpr uint8_t VERSION_MINOR = 1;
 
   class qspi_impl* pimpl = nullptr;
   uint8_t manufacturer_ID_ = 0;
@@ -202,8 +205,8 @@ public:
 inline void
 qspi::get_version (uint8_t& version_major, uint8_t& version_minor)
 {
-  version_major = QSPI_VERSION_MAJOR;
-  version_minor = QSPI_VERSION_MINOR;
+  version_major = VERSION_MAJOR;
+  version_minor = VERSION_MINOR;
 }
 
 inline qspi::qspi_result_t
