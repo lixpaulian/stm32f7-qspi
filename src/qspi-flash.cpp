@@ -1,7 +1,7 @@
 /*
  * qspi-flash.cpp
  *
- * Copyright (c) 2016, 2017 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2016-2018 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -117,7 +117,7 @@ qspi::read_JEDEC_ID (void)
   uint8_t buff[3];
   QSPI_CommandTypeDef sCommand;
 
-  if (mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
+  if (mutex_.timed_lock (TIMEOUT) == rtos::result::ok)
     {
       // Read command settings
       sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
@@ -133,14 +133,14 @@ qspi::read_JEDEC_ID (void)
       sCommand.Instruction = JEDEC_ID;
 
       // Initiate read and wait for the event
-      if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
-                                                            QSPI_TIMEOUT))
-          == ok)
+      result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
+                                                       TIMEOUT);
+      if (result == ok)
         {
-          if ((result = (qspi::qspi_result_t) HAL_QSPI_Receive_IT (hqspi_, buff))
-              == ok)
+          result = (qspi::qspi_result_t) HAL_QSPI_Receive_IT (hqspi_, buff);
+          if (result == ok)
             {
-              if (semaphore_.timed_wait (QSPI_TIMEOUT) == rtos::result::ok)
+              if (semaphore_.timed_wait (TIMEOUT) == rtos::result::ok)
                 {
                   manufacturer_ID_ = buff[0];
                   memory_type_ = buff[1] << 8;
@@ -196,7 +196,7 @@ qspi::sleep (bool state)
   qspi::qspi_result_t result = error;
   QSPI_CommandTypeDef sCommand;
 
-  if (mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
+  if (mutex_.timed_lock (TIMEOUT) == rtos::result::ok)
     {
       // Initial command settings
       sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
@@ -212,7 +212,7 @@ qspi::sleep (bool state)
       // Enable/disable deep sleep
       sCommand.Instruction = state ? POWER_DOWN : RELEASE_POWER_DOWN;
       result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
-                                                       QSPI_TIMEOUT);
+                                                       TIMEOUT);
       mutex_.unlock ();
     }
   return result;
@@ -232,7 +232,7 @@ qspi::enter_mem_mapped (void)
 
   if (pdevice_ != nullptr)
     {
-      if (mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
+      if (mutex_.timed_lock (TIMEOUT) == rtos::result::ok)
         {
           sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
           sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_4_LINES;
@@ -277,7 +277,7 @@ qspi::read (uint32_t address, uint8_t* buff, size_t count)
 
   if (pdevice_ != nullptr)
     {
-      if (mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
+      if (mutex_.timed_lock (TIMEOUT) == rtos::result::ok)
         {
           // Read command settings
           sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
@@ -306,17 +306,16 @@ qspi::read (uint32_t address, uint8_t* buff, size_t count)
             }
 
           // Initiate read and wait for the event
-          if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_,
-                                                                &sCommand,
-                                                                QSPI_TIMEOUT))
-              == ok)
+          result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
+                                                           TIMEOUT);
+          if (result == ok)
             {
-              if ((result = (qspi::qspi_result_t) HAL_QSPI_Receive_DMA (hqspi_,
-                                                                        buff))
-                  == ok)
+              result = (qspi::qspi_result_t) HAL_QSPI_Receive_DMA (hqspi_,
+                                                                   buff);
+              if (result == ok)
                 {
                   result =
-                      (semaphore_.timed_wait (QSPI_TIMEOUT) == rtos::result::ok) ?
+                      (semaphore_.timed_wait (TIMEOUT) == rtos::result::ok) ?
                           ok : timeout;
                 }
             }
@@ -359,7 +358,9 @@ qspi::write (uint32_t address, uint8_t* buff, size_t count)
         {
           in_block_count = 0x100 - (address & 0xFF);
           if (in_block_count > count)
-            in_block_count = count;
+            {
+              in_block_count = count;
+            }
           else if (in_block_count == 0)
             {
               in_block_count = (count > 0x100) ? 0x100 : count;
@@ -391,7 +392,7 @@ qspi::page_write (uint32_t address, uint8_t* buff, size_t count)
   QSPI_CommandTypeDef sCommand;
   QSPI_AutoPollingTypeDef sConfig;
 
-  if (mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
+  if (mutex_.timed_lock (TIMEOUT) == rtos::result::ok)
     {
       // Initial command settings
       sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
@@ -406,9 +407,9 @@ qspi::page_write (uint32_t address, uint8_t* buff, size_t count)
 
       // Enable write
       sCommand.Instruction = WRITE_ENABLE;
-      if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
-                                                            QSPI_TIMEOUT))
-          == ok)
+      result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
+                                                       TIMEOUT);
+      if (result == ok)
         {
           // Initiate write
           sCommand.Instruction = PAGE_PROGRAM;
@@ -416,16 +417,15 @@ qspi::page_write (uint32_t address, uint8_t* buff, size_t count)
           sCommand.DataMode = QSPI_DATA_4_LINES;
           sCommand.Address = address;
           sCommand.NbData = count;
-          if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_,
-                                                                &sCommand,
-                                                                QSPI_TIMEOUT))
-              == ok)
+          result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
+                                                           TIMEOUT);
+          if (result == ok)
             {
-              if ((result = (qspi::qspi_result_t) HAL_QSPI_Transmit_DMA (hqspi_,
-                                                                         buff))
-                  == ok)
+              result = (qspi::qspi_result_t) HAL_QSPI_Transmit_DMA (hqspi_,
+                                                                    buff);
+              if (result == ok)
                 {
-                  if (semaphore_.timed_wait (QSPI_TIMEOUT) == rtos::result::ok)
+                  if (semaphore_.timed_wait (TIMEOUT) == rtos::result::ok)
                     {
                       // Set auto-polling and wait for the event
                       sCommand.AddressMode = QSPI_ADDRESS_NONE;
@@ -437,12 +437,12 @@ qspi::page_write (uint32_t address, uint8_t* buff, size_t count)
                       sConfig.StatusBytesSize = 1;
                       sConfig.Interval = 0x10;
                       sConfig.AutomaticStop = QSPI_AUTOMATIC_STOP_ENABLE;
-                      if ((result =
-                          (qspi::qspi_result_t) HAL_QSPI_AutoPolling_IT (
-                              hqspi_, &sCommand, &sConfig)) == ok)
+                      result = (qspi::qspi_result_t) HAL_QSPI_AutoPolling_IT (
+                          hqspi_, &sCommand, &sConfig);
+                      if (result == ok)
                         {
                           result =
-                              (semaphore_.timed_wait (QSPI_TIMEOUT)
+                              (semaphore_.timed_wait (TIMEOUT)
                                   == rtos::result::ok) ? ok : timeout;
                         }
                     }
@@ -478,7 +478,7 @@ qspi::erase (uint32_t address, uint8_t which)
 
   if (pdevice_ != nullptr)
     {
-      if (mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
+      if (mutex_.timed_lock (TIMEOUT) == rtos::result::ok)
         {
           // Initial command settings
           sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
@@ -493,10 +493,9 @@ qspi::erase (uint32_t address, uint8_t which)
 
           // Enable write
           sCommand.Instruction = WRITE_ENABLE;
-          if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_,
-                                                                &sCommand,
-                                                                QSPI_TIMEOUT))
-              == ok)
+          result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
+                                                           TIMEOUT);
+          if (result == ok)
             {
               // Initiate erase
               sCommand.Instruction = which;
@@ -504,8 +503,10 @@ qspi::erase (uint32_t address, uint8_t which)
                   QSPI_ADDRESS_4_LINES;
               sCommand.DataMode = QSPI_DATA_NONE;
               sCommand.Address = address;
-              if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (
-                  hqspi_, &sCommand, QSPI_TIMEOUT)) == ok)
+              result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_,
+                                                               &sCommand,
+                                                               TIMEOUT);
+              if (result == ok)
                 {
                   // Set auto-polling and wait for the event
                   sCommand.Instruction = READ_STATUS_REGISTER;
@@ -517,13 +518,14 @@ qspi::erase (uint32_t address, uint8_t which)
                   sConfig.StatusBytesSize = 1;
                   sConfig.Interval = 0x10;
                   sConfig.AutomaticStop = QSPI_AUTOMATIC_STOP_ENABLE;
-                  if ((result = (qspi::qspi_result_t) HAL_QSPI_AutoPolling_IT (
-                      hqspi_, &sCommand, &sConfig)) == ok)
+                  result = (qspi::qspi_result_t) HAL_QSPI_AutoPolling_IT (
+                      hqspi_, &sCommand, &sConfig);
+                  if (result == ok)
                     {
                       result =
                           (semaphore_.timed_wait (
-                              (which == CHIP_ERASE) ? QSPI_CHIP_ERASE_TIMEOUT : //
-                                  QSPI_ERASE_TIMEOUT) == rtos::result::ok) ?
+                              (which == CHIP_ERASE) ? CHIP_ERASE_TIMEOUT : //
+                                  ERASE_TIMEOUT) == rtos::result::ok) ?
                               ok : timeout;
                     }
                 }
@@ -585,7 +587,7 @@ qspi::reset_chip (void)
   qspi::qspi_result_t result = busy;
   QSPI_CommandTypeDef sCommand;
 
-  if (mutex_.timed_lock (QSPI_TIMEOUT) == rtos::result::ok)
+  if (mutex_.timed_lock (TIMEOUT) == rtos::result::ok)
     {
       // Initial command settings
       sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
@@ -600,14 +602,14 @@ qspi::reset_chip (void)
 
       // Enable reset
       sCommand.Instruction = RESET_ENABLE;
-      if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
-                                                            QSPI_TIMEOUT))
-          == ok)
+      result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
+                                                       TIMEOUT);
+      if (result == ok)
         {
           // Send reset command
           sCommand.Instruction = RESET_DEVICE;
           result = (qspi::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
-                                                           QSPI_TIMEOUT);
+                                                           TIMEOUT);
         }
       mutex_.unlock ();
     }

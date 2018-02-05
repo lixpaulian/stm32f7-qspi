@@ -1,7 +1,7 @@
 /*
  * qspi-micron.cpp
  *
- * Copyright (c) 2016, 2017 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2016-2018 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -51,7 +51,7 @@ qspi_micron::enter_quad_mode (qspi* pq)
   qspi::qspi_result_t result = qspi::busy;
   uint8_t datareg;
 
-  if (pq->mutex_.timed_lock (qspi::QSPI_TIMEOUT) == rtos::result::ok)
+  if (pq->mutex_.timed_lock (qspi::TIMEOUT) == rtos::result::ok)
     {
       // Initial command settings
       sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
@@ -67,53 +67,54 @@ qspi_micron::enter_quad_mode (qspi* pq)
 
       // Enable volatile write
       sCommand.Instruction = qspi::WRITE_ENABLE;
-      if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (pq->hqspi_,
-							    &sCommand,
-							    qspi::QSPI_TIMEOUT))
-	  == qspi::ok)
-	{
-	  // Write enhanced volatile register
-	  sCommand.DataMode = QSPI_DATA_1_LINE;
-	  sCommand.Instruction = WRITE_VOLATILE_STATUS_REGISTER;
-	  if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (
-	      pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT)) == qspi::ok)
-	    {
-	      // Compute dummy cycles
-	      datareg = (pq->pdevice_->dummy_cycles << 4);
-	      datareg |= 0xB;
-	      if ((result = (qspi::qspi_result_t) HAL_QSPI_Transmit (
-		  pq->hqspi_, &datareg, qspi::QSPI_TIMEOUT)) == qspi::ok)
-		{
-		  // Enable write
-		  sCommand.DataMode = QSPI_DATA_NONE;
-		  sCommand.Instruction = qspi::WRITE_ENABLE;
-		  if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (
-		      pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT))
-		      == qspi::ok)
-		    {
-		      // Set number of dummy cycles
-		      sCommand.DataMode = QSPI_DATA_1_LINE;
-		      sCommand.Instruction = WRITE_ENH_VOLATILE_STATUS_REGISTER;
-		      if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (
-			  pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT))
-			  == qspi::ok)
-			{
-			  datareg = 0x6F;	// Enable quad protocol
-			  if ((result =
-			      (qspi::qspi_result_t) HAL_QSPI_Transmit (
-				  pq->hqspi_, &datareg, qspi::QSPI_TIMEOUT))
-			      == qspi::ok)
-			    {
-			      sCommand.DataMode = QSPI_DATA_NONE;
-			      sCommand.Instruction = ENTER_QUAD_MODE;
-			      result = (qspi::qspi_result_t) HAL_QSPI_Command (
-				  pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT);
-			    }
-			}
-		    }
-		}
-	    }
-	}
+      result = (qspi::qspi_result_t) HAL_QSPI_Command (pq->hqspi_, &sCommand,
+                                                       qspi::TIMEOUT);
+      if (result == qspi::ok)
+        {
+          // Write enhanced volatile register
+          sCommand.DataMode = QSPI_DATA_1_LINE;
+          sCommand.Instruction = WRITE_VOLATILE_STATUS_REGISTER;
+          result = (qspi::qspi_result_t) HAL_QSPI_Command (pq->hqspi_,
+                                                           &sCommand,
+                                                           qspi::TIMEOUT);
+          if (result == qspi::ok)
+            {
+              // Compute dummy cycles
+              datareg = (pq->pdevice_->dummy_cycles << 4);
+              datareg |= 0xB;
+              result = (qspi::qspi_result_t) HAL_QSPI_Transmit (
+                  pq->hqspi_, &datareg, qspi::TIMEOUT);
+              if (result == qspi::ok)
+                {
+                  // Enable write
+                  sCommand.DataMode = QSPI_DATA_NONE;
+                  sCommand.Instruction = qspi::WRITE_ENABLE;
+                  result = (qspi::qspi_result_t) HAL_QSPI_Command (
+                      pq->hqspi_, &sCommand, qspi::TIMEOUT);
+                  if (result == qspi::ok)
+                    {
+                      // Set number of dummy cycles
+                      sCommand.DataMode = QSPI_DATA_1_LINE;
+                      sCommand.Instruction = WRITE_ENH_VOLATILE_STATUS_REGISTER;
+                      result = (qspi::qspi_result_t) HAL_QSPI_Command (
+                          pq->hqspi_, &sCommand, qspi::TIMEOUT);
+                      if (result == qspi::ok)
+                        {
+                          datareg = 0x6F;	// Enable quad protocol
+                          result = (qspi::qspi_result_t) HAL_QSPI_Transmit (
+                              pq->hqspi_, &datareg, qspi::TIMEOUT);
+                          if (result == qspi::ok)
+                            {
+                              sCommand.DataMode = QSPI_DATA_NONE;
+                              sCommand.Instruction = ENTER_QUAD_MODE;
+                              result = (qspi::qspi_result_t) HAL_QSPI_Command (
+                                  pq->hqspi_, &sCommand, qspi::TIMEOUT);
+                            }
+                        }
+                    }
+                }
+            }
+        }
       pq->mutex_.unlock ();
     }
   return result;

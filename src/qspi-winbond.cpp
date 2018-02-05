@@ -1,7 +1,7 @@
 /*
  * qspi-winbond.cpp
  *
- * Copyright (c) 2016, 2017 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2016-2018 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -51,7 +51,7 @@ qspi_winbond::enter_quad_mode (qspi* pq)
   qspi::qspi_result_t result = qspi::busy;
   uint8_t datareg;
 
-  if (pq->mutex_.timed_lock (qspi::QSPI_TIMEOUT) == rtos::result::ok)
+  if (pq->mutex_.timed_lock (qspi::TIMEOUT) == rtos::result::ok)
     {
       // Initial command settings
       sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
@@ -67,44 +67,46 @@ qspi_winbond::enter_quad_mode (qspi* pq)
 
       // Enable volatile write
       sCommand.Instruction = VOLATILE_SR_WRITE_ENABLE;
-      if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (pq->hqspi_,
-							    &sCommand,
-							    qspi::QSPI_TIMEOUT))
-	  == qspi::ok)
-	{
-	  // Write status register 2 (enable Quad Mode)
-	  sCommand.DataMode = QSPI_DATA_1_LINE;
-	  sCommand.Instruction = WRITE_STATUS_REGISTER_2;
-	  if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (
-	      pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT)) == qspi::ok)
-	    {
-	      datareg = 2;
-	      if ((result = (qspi::qspi_result_t) HAL_QSPI_Transmit (
-		  pq->hqspi_, &datareg, qspi::QSPI_TIMEOUT)) == qspi::ok)
-		{
-		  sCommand.DataMode = QSPI_DATA_NONE;
-		  sCommand.Instruction = ENTER_QUAD_MODE;
-		  if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (
-		      pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT))
-		      == qspi::ok)
-		    {
-		      sCommand.DataMode = QSPI_DATA_4_LINES;
-		      sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
-		      sCommand.Instruction = SET_READ_PARAMETERS;
-		      if ((result = (qspi::qspi_result_t) HAL_QSPI_Command (
-			  pq->hqspi_, &sCommand, qspi::QSPI_TIMEOUT))
-			  == qspi::ok)
-			{
-			  // Compute and set number of dummy cycles
-			  datareg = (pq->pdevice_->dummy_cycles / 2) - 1;
-			  datareg <<= 4;
-			  result = (qspi::qspi_result_t) HAL_QSPI_Transmit (
-			      pq->hqspi_, &datareg, qspi::QSPI_TIMEOUT);
-			}
-		    }
-		}
-	    }
-	}
+      result = (qspi::qspi_result_t) HAL_QSPI_Command (pq->hqspi_, &sCommand,
+                                                       qspi::TIMEOUT);
+      if (result == qspi::ok)
+        {
+          // Write status register 2 (enable Quad Mode)
+          sCommand.DataMode = QSPI_DATA_1_LINE;
+          sCommand.Instruction = WRITE_STATUS_REGISTER_2;
+          result = (qspi::qspi_result_t) HAL_QSPI_Command (pq->hqspi_,
+                                                           &sCommand,
+                                                           qspi::TIMEOUT);
+          if (result == qspi::ok)
+            {
+              datareg = 2;
+              result = (qspi::qspi_result_t) HAL_QSPI_Transmit (
+                  pq->hqspi_, &datareg, qspi::TIMEOUT);
+              if (result == qspi::ok)
+                {
+                  sCommand.DataMode = QSPI_DATA_NONE;
+                  sCommand.Instruction = ENTER_QUAD_MODE;
+                  result = (qspi::qspi_result_t) HAL_QSPI_Command (
+                      pq->hqspi_, &sCommand, qspi::TIMEOUT);
+                  if (result == qspi::ok)
+                    {
+                      sCommand.DataMode = QSPI_DATA_4_LINES;
+                      sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
+                      sCommand.Instruction = SET_READ_PARAMETERS;
+                      result = (qspi::qspi_result_t) HAL_QSPI_Command (
+                          pq->hqspi_, &sCommand, qspi::TIMEOUT);
+                      if (result == qspi::ok)
+                        {
+                          // Compute and set number of dummy cycles
+                          datareg = (pq->pdevice_->dummy_cycles / 2) - 1;
+                          datareg <<= 4;
+                          result = (qspi::qspi_result_t) HAL_QSPI_Transmit (
+                              pq->hqspi_, &datareg, qspi::TIMEOUT);
+                        }
+                    }
+                }
+            }
+        }
       pq->mutex_.unlock ();
     }
   return result;
