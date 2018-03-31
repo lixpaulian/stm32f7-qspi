@@ -35,7 +35,7 @@ extern "C"
 {
 #endif
 
-#define TEST_CPLUSPLUS_API true
+#define TEST_CPLUSPLUS_API false
 
 #ifdef  __cplusplus
 }
