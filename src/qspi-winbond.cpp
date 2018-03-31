@@ -38,77 +38,87 @@
 #include "qspi-winbond.h"
 #include "qspi-descr.h"
 
-using namespace os;
-
-/**
- * @brief  Switch the flash chip to quad mode.
- * @return true if successful, false otherwise.
- */
-qspi::qspi_result_t
-qspi_winbond::enter_quad_mode (qspi* pq)
+namespace os
 {
-  QSPI_CommandTypeDef sCommand;
-  qspi::qspi_result_t result = qspi::busy;
-  uint8_t datareg;
-
-  if (pq->mutex_.timed_lock (qspi::TIMEOUT) == rtos::result::ok)
+  namespace driver
+  {
+    namespace stm32f7
     {
-      // Initial command settings
-      sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
-      sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
-      sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
-      sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
-      sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
-      sCommand.InstructionMode = QSPI_INSTRUCTION_1_LINE;
-      sCommand.AddressMode = QSPI_ADDRESS_NONE;
-      sCommand.DataMode = QSPI_DATA_NONE;
-      sCommand.DummyCycles = 0;
-      sCommand.NbData = 1;
 
-      // Enable volatile write
-      sCommand.Instruction = VOLATILE_SR_WRITE_ENABLE;
-      result = (qspi::qspi_result_t) HAL_QSPI_Command (pq->hqspi_, &sCommand,
-                                                       qspi::TIMEOUT);
-      if (result == qspi::ok)
-        {
-          // Write status register 2 (enable Quad Mode)
-          sCommand.DataMode = QSPI_DATA_1_LINE;
-          sCommand.Instruction = WRITE_STATUS_REGISTER_2;
-          result = (qspi::qspi_result_t) HAL_QSPI_Command (pq->hqspi_,
-                                                           &sCommand,
-                                                           qspi::TIMEOUT);
-          if (result == qspi::ok)
-            {
-              datareg = 2;
-              result = (qspi::qspi_result_t) HAL_QSPI_Transmit (
-                  pq->hqspi_, &datareg, qspi::TIMEOUT);
-              if (result == qspi::ok)
-                {
-                  sCommand.DataMode = QSPI_DATA_NONE;
-                  sCommand.Instruction = ENTER_QUAD_MODE;
-                  result = (qspi::qspi_result_t) HAL_QSPI_Command (
-                      pq->hqspi_, &sCommand, qspi::TIMEOUT);
-                  if (result == qspi::ok)
-                    {
-                      sCommand.DataMode = QSPI_DATA_4_LINES;
-                      sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
-                      sCommand.Instruction = SET_READ_PARAMETERS;
-                      result = (qspi::qspi_result_t) HAL_QSPI_Command (
-                          pq->hqspi_, &sCommand, qspi::TIMEOUT);
-                      if (result == qspi::ok)
-                        {
-                          // Compute and set number of dummy cycles
-                          datareg = (pq->pdevice_->dummy_cycles / 2) - 1;
-                          datareg <<= 4;
-                          result = (qspi::qspi_result_t) HAL_QSPI_Transmit (
-                              pq->hqspi_, &datareg, qspi::TIMEOUT);
-                        }
-                    }
-                }
-            }
-        }
-      pq->mutex_.unlock ();
-    }
-  return result;
-}
+      /**
+       * @brief  Switch the flash chip to quad mode.
+       * @return true if successful, false otherwise.
+       */
+      qspi_impl::qspi_result_t
+      qspi_winbond::enter_quad_mode (qspi_impl* pq)
+      {
+        QSPI_CommandTypeDef sCommand;
+        qspi_impl::qspi_result_t result = qspi_impl::busy;
+        uint8_t datareg;
 
+        if (pq->mutex_.timed_lock (qspi_impl::TIMEOUT) == rtos::result::ok)
+          {
+            // Initial command settings
+            sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
+            sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+            sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
+            sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+            sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
+            sCommand.InstructionMode = QSPI_INSTRUCTION_1_LINE;
+            sCommand.AddressMode = QSPI_ADDRESS_NONE;
+            sCommand.DataMode = QSPI_DATA_NONE;
+            sCommand.DummyCycles = 0;
+            sCommand.NbData = 1;
+
+            // Enable volatile write
+            sCommand.Instruction = VOLATILE_SR_WRITE_ENABLE;
+            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (
+                pq->hqspi_, &sCommand, qspi_impl::TIMEOUT);
+            if (result == qspi_impl::ok)
+              {
+                // Write status register 2 (enable Quad Mode)
+                sCommand.DataMode = QSPI_DATA_1_LINE;
+                sCommand.Instruction = WRITE_STATUS_REGISTER_2;
+                result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (
+                    pq->hqspi_, &sCommand, qspi_impl::TIMEOUT);
+                if (result == qspi_impl::ok)
+                  {
+                    datareg = 2;
+                    result = (qspi_impl::qspi_result_t) HAL_QSPI_Transmit (
+                        pq->hqspi_, &datareg, qspi_impl::TIMEOUT);
+                    if (result == qspi_impl::ok)
+                      {
+                        sCommand.DataMode = QSPI_DATA_NONE;
+                        sCommand.Instruction = ENTER_QUAD_MODE;
+                        result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (
+                            pq->hqspi_, &sCommand, qspi_impl::TIMEOUT);
+                        if (result == qspi_impl::ok)
+                          {
+                            sCommand.DataMode = QSPI_DATA_4_LINES;
+                            sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
+                            sCommand.Instruction = SET_READ_PARAMETERS;
+                            result =
+                                (qspi_impl::qspi_result_t) HAL_QSPI_Command (
+                                    pq->hqspi_, &sCommand, qspi_impl::TIMEOUT);
+                            if (result == qspi_impl::ok)
+                              {
+                                // Compute and set number of dummy cycles
+                                datareg = (pq->pdevice_->dummy_cycles / 2) - 1;
+                                datareg <<= 4;
+                                result =
+                                    (qspi_impl::qspi_result_t) HAL_QSPI_Transmit (
+                                        pq->hqspi_, &datareg,
+                                        qspi_impl::TIMEOUT);
+                              }
+                          }
+                      }
+                  }
+              }
+            pq->mutex_.unlock ();
+          }
+        return result;
+      }
+
+    } /* namespace stm32f7 */
+  } /* namespace driver */
+} /* namespace os */

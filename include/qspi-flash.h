@@ -31,219 +31,252 @@
 #define QSPI_FLASH_H_
 
 #include <cmsis-plus/rtos/os.h>
+#include <cmsis-plus/posix-io/block-device.h>
 #include "cmsis_device.h"
 #include "quadspi.h"
 
 #if defined (__cplusplus)
 
-typedef struct qspi_device_s qspi_device_t;
-class qspi_impl;
-
-class qspi
+namespace os
 {
-public:
-  qspi (QSPI_HandleTypeDef* hqspi);
-
-  ~qspi () = default;
-
-  typedef enum
+  namespace driver
   {
-    ok = HAL_OK,                // HAL errors
-    error = HAL_ERROR,
-    busy = HAL_BUSY,
-    timeout = HAL_TIMEOUT,
-    type_not_found = 10,        // qspi specific errors
-  } qspi_result_t;
+    namespace stm32f7
+    {
+      typedef struct qspi_device_s qspi_device_t;
+      class qspi_intern;
 
-  void
-  get_version (uint8_t& version_major, uint8_t& version_minor);
+      class qspi_impl : public os::posix::block_device_impl
+      {
+      public:
+        qspi_impl (os::posix::block_device& self, QSPI_HandleTypeDef* hqspi);
 
-  void
-  power (bool state);
+        ~qspi_impl ();
 
-  qspi_result_t
-  sleep (bool state);
+        typedef enum
+        {
+          ok = HAL_OK,                // HAL errors
+          error = HAL_ERROR,
+          busy = HAL_BUSY,
+          timeout = HAL_TIMEOUT,
+          type_not_found = 10,        // qspi specific errors
+        } qspi_result_t;
 
-  qspi_result_t
-  initialize (void);
+        virtual bool
+        do_is_opened (void) override;
 
-  qspi_result_t
-  uninitialize (void);
+        virtual int
+        do_vopen (const char* path, int oflag, std::va_list args) override;
 
-  qspi_result_t
-  enter_mem_mapped (void);
+        virtual ssize_t
+        do_read_block (void* buf, blknum_t blknum, std::size_t nblocks)
+            override;
 
-  qspi_result_t
-  exit_mem_mapped (void);
+        virtual ssize_t
+        do_write_block (const void* buf, blknum_t blknum, std::size_t nblocks)
+            override;
 
-  qspi_result_t
-  read (uint32_t address, uint8_t* buff, size_t count);
+        virtual int
+        do_vioctl (int request, std::va_list args) override;
 
-  qspi_result_t
-  write (uint32_t address, uint8_t* buff, size_t count);
+        virtual void
+        do_sync (void) override;
 
-  qspi_result_t
-  read_sector (uint32_t sector, uint8_t* buff, size_t count);
+        virtual int
+        do_close (void) override;
 
-  qspi_result_t
-  write_sector (uint32_t sector, uint8_t* buff, size_t count);
+        void
+        get_version (uint8_t& version_major, uint8_t& version_minor);
 
-  qspi_result_t
-  erase_sector (uint32_t sector);
+        qspi_result_t
+        sleep (bool state);
 
-  qspi_result_t
-  erase_block32K (uint32_t address);
+        qspi_result_t
+        initialize (void);
 
-  qspi_result_t
-  erase_block64K (uint32_t address);
+        qspi_result_t
+        uninitialize (void);
 
-  qspi_result_t
-  erase_chip (void);
+        qspi_result_t
+        enter_mem_mapped (void);
 
-  qspi_result_t
-  reset_chip (void);
+        qspi_result_t
+        exit_mem_mapped (void);
 
-  const char*
-  get_manufacturer (void);
+        qspi_result_t
+        read (uint32_t address, uint8_t* buff, size_t count);
 
-  const char*
-  get_memory_type (void);
+        qspi_result_t
+        write (uint32_t address, uint8_t* buff, size_t count);
 
-  size_t
-  get_sector_size (void);
+        qspi_result_t
+        read_sector (uint32_t sector, uint8_t* buff, size_t count);
 
-  size_t
-  get_sector_count (void);
+        qspi_result_t
+        write_sector (uint32_t sector, uint8_t* buff, size_t count);
 
-  void
-  cb_event (void);
+        qspi_result_t
+        erase_sector (uint32_t sector);
 
-  friend class qspi_winbond;
-  friend class qspi_micron;
+        qspi_result_t
+        erase_block32K (uint32_t address);
 
-protected:
-  qspi_result_t
-  enter_quad_mode (void);
+        qspi_result_t
+        erase_block64K (uint32_t address);
 
-  // Standard command sub-set (common for all flash chips)
-  static constexpr uint8_t JEDEC_ID = 0x9F;
+        qspi_result_t
+        erase_chip (void);
 
-  static constexpr uint8_t WRITE_ENABLE = 0x06;
-  static constexpr uint8_t WRITE_DISABLE = 0x04;
+        qspi_result_t
+        reset_chip (void);
 
-  static constexpr uint8_t READ_STATUS_REGISTER = 0x05;
-  static constexpr uint8_t WRITE_STATUS_REGISTER = 0x01;
+        const char*
+        get_manufacturer (void);
 
-  static constexpr uint8_t SECTOR_ERASE = 0x20;
-  static constexpr uint8_t BLOCK_32K_ERASE = 0x52;
-  static constexpr uint8_t BLOCK_64K_ERASE = 0xD8;
-  static constexpr uint8_t CHIP_ERASE = 0xC7;
+        const char*
+        get_memory_type (void);
 
-  static constexpr uint8_t RESET_ENABLE = 0x66;
-  static constexpr uint8_t RESET_DEVICE = 0x99;
+        size_t
+        get_sector_size (void);
 
-  static constexpr uint8_t POWER_DOWN = 0xB9;
-  static constexpr uint8_t RELEASE_POWER_DOWN = 0xAB;
+        size_t
+        get_sector_count (void);
 
-  static constexpr uint8_t PAGE_PROGRAM = 0x02;
-  static constexpr uint8_t QUAD_PAGE_PROGRAM = 0x32;
+        void
+        cb_event (void);
 
-  static constexpr uint8_t READ_DATA = 0x03;
-  static constexpr uint8_t FAST_READ_DATA = 0x0B;
-  static constexpr uint8_t FAST_READ_QUAD_OUT = 0x6B;
-  static constexpr uint8_t FAST_READ_QUAD_IN_OUT = 0xEB;
+        friend class qspi_winbond;
+        friend class qspi_micron;
 
-  // Some timeouts
-  static constexpr uint32_t one_ms = 1000 / os::rtos::sysclock.frequency_hz;
-  static constexpr uint32_t one_sec = 1000 * one_ms;
-  static constexpr uint32_t TIMEOUT = 100 * one_ms;
-  static constexpr uint32_t ERASE_TIMEOUT = 2 * one_sec;
-  static constexpr uint32_t CHIP_ERASE_TIMEOUT = 200 * one_sec;
+      protected:
+        qspi_result_t
+        enter_quad_mode (void);
 
-  QSPI_HandleTypeDef* hqspi_;
-  os::rtos::semaphore_binary semaphore_
-    { "qspi", 0 };
-  os::rtos::mutex mutex_
-    { "qspi" };
+        // Standard command sub-set (common for all flash chips)
+        static constexpr uint8_t JEDEC_ID = 0x9F;
 
-private:
-  qspi_result_t
-  page_write (uint32_t address, uint8_t* buff, size_t count);
+        static constexpr uint8_t WRITE_ENABLE = 0x06;
+        static constexpr uint8_t WRITE_DISABLE = 0x04;
 
-  qspi_result_t
-  read_JEDEC_ID (void);
+        static constexpr uint8_t READ_STATUS_REGISTER = 0x05;
+        static constexpr uint8_t WRITE_STATUS_REGISTER = 0x01;
 
-  qspi_result_t
-  erase (uint32_t address, uint8_t which);
+        static constexpr uint8_t SECTOR_ERASE = 0x20;
+        static constexpr uint8_t BLOCK_32K_ERASE = 0x52;
+        static constexpr uint8_t BLOCK_64K_ERASE = 0xD8;
+        static constexpr uint8_t CHIP_ERASE = 0xC7;
 
-  static constexpr uint8_t VERSION_MAJOR = 1;
-  static constexpr uint8_t VERSION_MINOR = 1;
+        static constexpr uint8_t RESET_ENABLE = 0x66;
+        static constexpr uint8_t RESET_DEVICE = 0x99;
 
-  class qspi_impl* pimpl = nullptr;
-  uint8_t manufacturer_ID_ = 0;
-  uint16_t memory_type_ = 0;
-  const char* pmanufacturer_ = nullptr;
-  const qspi_device_t* pdevice_ = nullptr;
+        static constexpr uint8_t POWER_DOWN = 0xB9;
+        static constexpr uint8_t RELEASE_POWER_DOWN = 0xAB;
 
-};
+        static constexpr uint8_t PAGE_PROGRAM = 0x02;
+        static constexpr uint8_t QUAD_PAGE_PROGRAM = 0x32;
 
-class qspi_impl
-{
-public:
-  qspi_impl (void)
-  {
-  }
+        static constexpr uint8_t READ_DATA = 0x03;
+        static constexpr uint8_t FAST_READ_DATA = 0x0B;
+        static constexpr uint8_t FAST_READ_QUAD_OUT = 0x6B;
+        static constexpr uint8_t FAST_READ_QUAD_IN_OUT = 0xEB;
 
-  virtual
-  ~qspi_impl () = default;
+        // Some timeouts
+        static constexpr uint32_t one_ms = 1000
+            / os::rtos::sysclock.frequency_hz;
+        static constexpr uint32_t one_sec = 1000 * one_ms;
+        static constexpr uint32_t TIMEOUT = 100 * one_ms;
+        static constexpr uint32_t ERASE_TIMEOUT = 2 * one_sec;
+        static constexpr uint32_t CHIP_ERASE_TIMEOUT = 200 * one_sec;
 
-  virtual qspi::qspi_result_t
-  enter_quad_mode (qspi* pq) = 0;
+        QSPI_HandleTypeDef* hqspi_;
+        os::rtos::semaphore_binary semaphore_
+          { "qspi", 0 };
+        os::rtos::mutex mutex_
+          { "qspi" };
 
-};
+      private:
+        qspi_result_t
+        page_write (uint32_t address, uint8_t* buff, size_t count);
 
-inline void
-qspi::get_version (uint8_t& version_major, uint8_t& version_minor)
-{
-  version_major = VERSION_MAJOR;
-  version_minor = VERSION_MINOR;
-}
+        qspi_result_t
+        read_JEDEC_ID (void);
 
-inline qspi::qspi_result_t
-qspi::enter_quad_mode (void)
-{
-  return (pimpl == nullptr) ? error : pimpl->enter_quad_mode (this);
-}
+        qspi_result_t
+        erase (uint32_t address, uint8_t which);
 
-inline qspi::qspi_result_t
-qspi::exit_mem_mapped (void)
-{
-  return ((qspi::qspi_result_t) (HAL_QSPI_Abort (hqspi_)));
-}
+        static constexpr uint8_t VERSION_MAJOR = 1;
+        static constexpr uint8_t VERSION_MINOR = 1;
 
-inline qspi::qspi_result_t
-qspi::erase_block32K (uint32_t address)
-{
-  return erase (address, BLOCK_32K_ERASE);
-}
+        class qspi_intern* pimpl = nullptr;
+        uint8_t manufacturer_ID_ = 0;
+        uint16_t memory_type_ = 0;
+        const char* pmanufacturer_ = nullptr;
+        const qspi_device_t* pdevice_ = nullptr;
+        bool volatile is_opened_ = false;
 
-inline qspi::qspi_result_t
-qspi::erase_block64K (uint32_t address)
-{
-  return erase (address, BLOCK_64K_ERASE);
-}
+      };
 
-inline qspi::qspi_result_t
-qspi::erase_chip (void)
-{
-  return erase (0, CHIP_ERASE);
-}
+      class qspi_intern
+      {
+      public:
+        qspi_intern (void)
+        {
+        }
 
-inline const char*
-qspi::get_manufacturer (void)
-{
-  return pmanufacturer_;
-}
+        virtual
+        ~qspi_intern () = default;
+
+        virtual qspi_impl::qspi_result_t
+        enter_quad_mode (qspi_impl* pq) = 0;
+
+      };
+
+      inline void
+      qspi_impl::get_version (uint8_t& version_major, uint8_t& version_minor)
+      {
+        version_major = VERSION_MAJOR;
+        version_minor = VERSION_MINOR;
+      }
+
+      inline qspi_impl::qspi_result_t
+      qspi_impl::enter_quad_mode (void)
+      {
+        return (pimpl == nullptr) ? error : pimpl->enter_quad_mode (this);
+      }
+
+      inline qspi_impl::qspi_result_t
+      qspi_impl::exit_mem_mapped (void)
+      {
+        return ((qspi_impl::qspi_result_t) (HAL_QSPI_Abort (hqspi_)));
+      }
+
+      inline qspi_impl::qspi_result_t
+      qspi_impl::erase_block32K (uint32_t address)
+      {
+        return erase (address, BLOCK_32K_ERASE);
+      }
+
+      inline qspi_impl::qspi_result_t
+      qspi_impl::erase_block64K (uint32_t address)
+      {
+        return erase (address, BLOCK_64K_ERASE);
+      }
+
+      inline qspi_impl::qspi_result_t
+      qspi_impl::erase_chip (void)
+      {
+        return erase (0, CHIP_ERASE);
+      }
+
+      inline const char*
+      qspi_impl::get_manufacturer (void)
+      {
+        return pmanufacturer_;
+      }
+
+    } /* namespace stm32f7 */
+  } /* namespace driver */
+} /* namespace os */
 
 #endif // (__cplusplus)
 

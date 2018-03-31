@@ -32,26 +32,38 @@
 
 #include "stdint.h"
 
+namespace os
+{
+  namespace driver
+  {
+    namespace stm32f7
+    {
+
 #define MANUF_ID_MICRON 0x20
 #define MANUF_ID_WINBOND 0xEF
 
-typedef struct qspi_device_s
-{
-  uint16_t device_ID;
-  uint16_t sector_size;
-  const char* device_name;
-  bool DTR_support;
-  uint8_t dummy_cycles;	// dummy cycles in quad fast read mode
-} qspi_device_t;
+      typedef struct qspi_device_s
+      {
+        uint16_t device_ID;
+        uint16_t sector_size;
+        const char* device_name;
+        bool DTR_support;
+        uint8_t dummy_cycles;	// dummy cycles in quad fast read mode
+      } qspi_device_t;
 
-typedef struct qspi_manuf_s
-{
-  uint8_t manufacturer_ID;
-  const char* manufacturer_name;
-  const qspi_device_t* devices;
-  class qspi_impl* (*qspi_factory)();
-} qspi_manuf_t;
+      typedef struct qspi_manuf_s
+      {
+        uint8_t manufacturer_ID;
+        const char* manufacturer_name;
+        const qspi_device_t* devices;
+        class qspi_intern*
+        (*qspi_factory) ();
+      } qspi_manuf_t;
 
-extern const qspi_manuf_t qspi_manufacturers[];
+      extern const qspi_manuf_t qspi_manufacturers[];
+
+    } /* namespace stm32f7 */
+  } /* namespace driver */
+} /* namespace os */
 
 #endif /* QSPI_DESCR_H_ */

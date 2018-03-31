@@ -34,22 +34,33 @@
 
 #if defined (__cplusplus)
 
-class qspi_micron : public qspi_impl
+namespace os
 {
+  namespace driver
+  {
+    namespace stm32f7
+    {
 
-public:
-  virtual qspi::qspi_result_t
-  enter_quad_mode (qspi* pq) override;
+      class qspi_micron : public qspi_intern
+      {
 
-private:
-  // Micron/ST specific commands
-  static constexpr uint8_t READ_VOLATILE_STATUS_REGISTER = 0x85;
-  static constexpr uint8_t READ_ENH_VOLATILE_STATUS_REGISTER = 0x65;
-  static constexpr uint8_t WRITE_VOLATILE_STATUS_REGISTER = 0x81;
-  static constexpr uint8_t WRITE_ENH_VOLATILE_STATUS_REGISTER = 0x61;
-  static constexpr uint8_t ENTER_QUAD_MODE = 0x38;
+      public:
+        virtual qspi_impl::qspi_result_t
+        enter_quad_mode (qspi_impl* pq) override;
 
-};
+      private:
+        // Micron/ST specific commands
+        static constexpr uint8_t READ_VOLATILE_STATUS_REGISTER = 0x85;
+        static constexpr uint8_t READ_ENH_VOLATILE_STATUS_REGISTER = 0x65;
+        static constexpr uint8_t WRITE_VOLATILE_STATUS_REGISTER = 0x81;
+        static constexpr uint8_t WRITE_ENH_VOLATILE_STATUS_REGISTER = 0x61;
+        static constexpr uint8_t ENTER_QUAD_MODE = 0x38;
+
+      };
+
+    } /* namespace stm32f7 */
+  } /* namespace driver */
+} /* namespace os */
 
 #endif
 

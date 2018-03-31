@@ -34,24 +34,35 @@
 
 #if defined (__cplusplus)
 
-class qspi_winbond : public qspi_impl
+namespace os
 {
+  namespace driver
+  {
+    namespace stm32f7
+    {
 
-public:
-  virtual qspi::qspi_result_t
-  enter_quad_mode (qspi* pq) override;
+      class qspi_winbond : public qspi_intern
+      {
 
-private:
-  // Winbond specific commands
-  static constexpr uint8_t VOLATILE_SR_WRITE_ENABLE = 0x50;
-  static constexpr uint8_t READ_STATUS_REGISTER_2 = 0x35;
-  static constexpr uint8_t WRITE_STATUS_REGISTER_2 = 0x31;
-  static constexpr uint8_t READ_STATUS_REGISTER_3 = 0x15;
-  static constexpr uint8_t WRITE_STATUS_REGISTER_3 = 0x11;
-  static constexpr uint8_t ENTER_QUAD_MODE = 0x38;
-  static constexpr uint8_t SET_READ_PARAMETERS = 0xC0;
+      public:
+        virtual qspi_impl::qspi_result_t
+        enter_quad_mode (qspi_impl* pq) override;
 
-};
+      private:
+        // Winbond specific commands
+        static constexpr uint8_t VOLATILE_SR_WRITE_ENABLE = 0x50;
+        static constexpr uint8_t READ_STATUS_REGISTER_2 = 0x35;
+        static constexpr uint8_t WRITE_STATUS_REGISTER_2 = 0x31;
+        static constexpr uint8_t READ_STATUS_REGISTER_3 = 0x15;
+        static constexpr uint8_t WRITE_STATUS_REGISTER_3 = 0x11;
+        static constexpr uint8_t ENTER_QUAD_MODE = 0x38;
+        static constexpr uint8_t SET_READ_PARAMETERS = 0xC0;
+
+      };
+
+    } /* namespace stm32f7 */
+  } /* namespace driver */
+} /* namespace os */
 
 #endif
 
