@@ -52,6 +52,7 @@ extern "C"
 
   typedef struct
   {
+    ;
   } qspi_t;
 
   qspi_t *
