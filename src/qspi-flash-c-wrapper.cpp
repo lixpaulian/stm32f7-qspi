@@ -30,6 +30,13 @@
 #include "qspi-flash.h"
 #include "qspi-flash-c-api.h"
 
+using namespace os::driver::stm32f7;
+
+// Explicit template instantiation
+template class os::posix::block_device_implementable<
+    os::driver::stm32f7::qspi_impl>;
+using qspi_c = os::posix::block_device_implementable<os::driver::stm32f7::qspi_impl>;
+
 /**
  * @brief  Allocate a qspi_flash object instance and construct it.
  * @param  hqspi: qspi handle.
@@ -38,8 +45,8 @@
 qspi_t *
 qspi_new (QSPI_HandleTypeDef* hqspi)
 {
-  qspi_t* pqspi = reinterpret_cast<qspi_t*> (new qspi
-    { hqspi });
+  qspi_t* pqspi = reinterpret_cast<qspi_t*> (new qspi_c
+    { "flash", hqspi });
   return pqspi;
 }
 
@@ -50,7 +57,7 @@ qspi_new (QSPI_HandleTypeDef* hqspi)
 void
 qspi_delete (qspi_t* qspi_instance)
 {
-  delete reinterpret_cast<class qspi*> (qspi_instance);
+  delete reinterpret_cast<class qspi_impl*> (qspi_instance);
 }
 
 /**
@@ -63,19 +70,8 @@ void
 qspi_get_version (qspi_t* qspi_instance, uint8_t* version_major,
                   uint8_t* version_minor)
 {
-  reinterpret_cast<class qspi*> (qspi_instance)->get_version (*version_major,
-                                                              *version_minor);
-}
-
-/**
- * @brief  Control the power state of the QSPI device.
- * @param  qspi_instance: pointer to the qspi object.
- * @param  state: new state, either true (power on) or false (power off).
- */
-void
-qspi_power (qspi_t* qspi_instance, bool state)
-{
-  reinterpret_cast<class qspi*> (qspi_instance)->power (state);
+  ((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).get_version (
+      *version_major, *version_minor);
 }
 
 /**
@@ -87,7 +83,7 @@ qspi_power (qspi_t* qspi_instance, bool state)
 qspi_result_t
 qspi_sleep (qspi_t* qspi_instance, bool state)
 {
-  return (qspi_result_t) (reinterpret_cast<class qspi*> (qspi_instance)->sleep (
+  return (qspi_result_t) (((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).sleep (
       state));
 }
 
@@ -100,7 +96,7 @@ qspi_sleep (qspi_t* qspi_instance, bool state)
 qspi_result_t
 qspi_initialize (qspi_t* qspi_instance)
 {
-  return (qspi_result_t) (reinterpret_cast<class qspi*> (qspi_instance)->initialize ());
+  return (qspi_result_t) (((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).initialize ());
 }
 
 /**
@@ -111,7 +107,7 @@ qspi_initialize (qspi_t* qspi_instance)
 qspi_result_t
 qspi_uninitialize (qspi_t* qspi_instance)
 {
-  return (qspi_result_t) (reinterpret_cast<class qspi*> (qspi_instance)->uninitialize ());
+  return (qspi_result_t) (((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).uninitialize ());
 }
 
 /**
@@ -123,7 +119,7 @@ qspi_uninitialize (qspi_t* qspi_instance)
 qspi_result_t
 qspi_enter_mem_mapped (qspi_t* qspi_instance)
 {
-  return (qspi_result_t) (reinterpret_cast<class qspi*> (qspi_instance)->enter_mem_mapped ());
+  return (qspi_result_t) (((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).enter_mem_mapped ());
 }
 
 /**
@@ -134,7 +130,7 @@ qspi_enter_mem_mapped (qspi_t* qspi_instance)
 qspi_result_t
 qspi_exit_mem_mapped (qspi_t* qspi_instance)
 {
-  return (qspi_result_t) (reinterpret_cast<class qspi*> (qspi_instance)->exit_mem_mapped ());
+  return (qspi_result_t) (((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).exit_mem_mapped ());
 }
 
 /**
@@ -148,7 +144,7 @@ qspi_exit_mem_mapped (qspi_t* qspi_instance)
 qspi_result_t
 qspi_read (qspi_t* qspi_instance, uint32_t address, uint8_t* buff, size_t count)
 {
-  return (qspi_result_t) (reinterpret_cast<class qspi*> (qspi_instance)->read (
+  return (qspi_result_t) (((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).read (
       address, buff, count));
 }
 
@@ -164,7 +160,7 @@ qspi_result_t
 qspi_write (qspi_t* qspi_instance, uint32_t address, uint8_t* buff,
             size_t count)
 {
-  return (qspi_result_t) (reinterpret_cast<class qspi*> (qspi_instance)->write (
+  return (qspi_result_t) (((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).write (
       address, buff, count));
 }
 
@@ -180,7 +176,7 @@ qspi_result_t
 qspi_read_sector (qspi_t* qspi_instance, uint32_t sector, uint8_t* buff,
                   size_t count)
 {
-  return (qspi_result_t) (reinterpret_cast<class qspi*> (qspi_instance)->read_sector (
+  return (qspi_result_t) (((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).read_sector (
       sector, buff, count));
 }
 
@@ -196,7 +192,7 @@ qspi_result_t
 qspi_write_sector (qspi_t* qspi_instance, uint32_t sector, uint8_t* buff,
                    size_t count)
 {
-  return (qspi_result_t) (reinterpret_cast<class qspi*> (qspi_instance)->write_sector (
+  return (qspi_result_t) (((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).write_sector (
       sector, buff, count));
 }
 
@@ -209,7 +205,7 @@ qspi_write_sector (qspi_t* qspi_instance, uint32_t sector, uint8_t* buff,
 qspi_result_t
 qspi_erase_sector (qspi_t* qspi_instance, uint32_t sector)
 {
-  return (qspi_result_t) (reinterpret_cast<class qspi*> (qspi_instance)->erase_sector (
+  return (qspi_result_t) (((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).erase_sector (
       sector));
 }
 
@@ -222,7 +218,7 @@ qspi_erase_sector (qspi_t* qspi_instance, uint32_t sector)
 qspi_result_t
 qspi_erase_block32K (qspi_t* qspi_instance, uint32_t address)
 {
-  return (qspi_result_t) (reinterpret_cast<class qspi*> (qspi_instance)->erase_block32K (
+  return (qspi_result_t) (((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).erase_block32K (
       address));
 }
 
@@ -235,7 +231,7 @@ qspi_erase_block32K (qspi_t* qspi_instance, uint32_t address)
 qspi_result_t
 qspi_erase_block64K (qspi_t* qspi_instance, uint32_t address)
 {
-  return (qspi_result_t) (reinterpret_cast<class qspi*> (qspi_instance)->erase_block64K (
+  return (qspi_result_t) (((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).erase_block64K (
       address));
 }
 
@@ -247,7 +243,7 @@ qspi_erase_block64K (qspi_t* qspi_instance, uint32_t address)
 qspi_result_t
 qspi_erase_chip (qspi_t* qspi_instance)
 {
-  return (qspi_result_t) (reinterpret_cast<class qspi*> (qspi_instance)->erase_chip ());
+  return (qspi_result_t) (((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).erase_chip ());
 }
 
 /**
@@ -258,7 +254,7 @@ qspi_erase_chip (qspi_t* qspi_instance)
 qspi_result_t
 qspi_reset_chip (qspi_t* qspi_instance)
 {
-  return (qspi_result_t) (reinterpret_cast<class qspi*> (qspi_instance)->reset_chip ());
+  return (qspi_result_t) (((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).reset_chip ());
 }
 
 /**
@@ -270,7 +266,7 @@ qspi_reset_chip (qspi_t* qspi_instance)
 const char*
 qspi_get_manufacturer (qspi_t* qspi_instance)
 {
-  return (reinterpret_cast<class qspi*> (qspi_instance)->get_manufacturer ());
+  return (((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).get_manufacturer ());
 }
 
 /**
@@ -282,7 +278,7 @@ qspi_get_manufacturer (qspi_t* qspi_instance)
 const char*
 qspi_get_memory_type (qspi_t* qspi_instance)
 {
-  return (reinterpret_cast<class qspi*> (qspi_instance)->get_memory_type ());
+  return (((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).get_memory_type ());
 }
 
 /**
@@ -293,7 +289,7 @@ qspi_get_memory_type (qspi_t* qspi_instance)
 size_t
 qspi_get_sector_size (qspi_t* qspi_instance)
 {
-  return (reinterpret_cast<class qspi*> (qspi_instance)->get_sector_size ());
+  return (((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).get_sector_size ());
 }
 
 /**
@@ -304,7 +300,7 @@ qspi_get_sector_size (qspi_t* qspi_instance)
 size_t
 qspi_get_sector_count (qspi_t* qspi_instance)
 {
-  return (reinterpret_cast<class qspi*> (qspi_instance)->get_sector_count ());
+  return (((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).get_sector_count ());
 }
 
 /**
@@ -314,6 +310,6 @@ qspi_get_sector_count (qspi_t* qspi_instance)
 void
 qspi_event_cb (qspi_t* qspi_instance)
 {
-  reinterpret_cast<class qspi*> (qspi_instance)->cb_event ();
+  ((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).cb_event ();
 }
 
