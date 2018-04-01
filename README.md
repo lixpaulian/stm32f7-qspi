@@ -2,7 +2,7 @@
 This is a QSPI serial flash driver for the STM32F7xx family of controllers.
 
 ## Version
-* 1.1 (5 Feb. 2018)
+* 2.0 (1 April 2018)
 
 ## License
 * MIT
@@ -14,15 +14,17 @@ The driver is provided as an XPACK and can be installed in an Eclipse based proj
 The driver depends on the following software packages:
 * STM32F7 CMSIS (https://github.com/xpacks/stm32f7-cmsis)
 * STM32F7xx HAL Library (https://github.com/xpacks/stm32f7-hal)
-* uOS++ (https://github.com/micro-os-plus/micro-os-plus-iii)
+* uOS++ (https://github.com/micro-os-plus/micro-os-plus-iii), version 6.3.14 and up.
 
-Note that the hardware initialisations (uController clock, peripherals clocks, etc.) must be separately performed, normaly in, or called from the initialize_hardware.c file of a gnuarmeclipse project. You can do this using the CubeMX generator from ST. You may find helpful to check the following projects as references:
+Alternatively, the CMSIS and HAL Library xpacks can be provided by ST's CubeMX code generator (recommened, as the STM32xxx xpacks will probably be discontinued).
+
+The hardware initialisations (uController clock, peripherals clocks, etc.) must be separately performed, normaly in, or called from the initialize_hardware.c file of a GNU MCU Eclipse project. You can do this using the CubeMX code generator from ST. You may find helpful to check the following projects as references:
 * https://github.com/micro-os-plus/eclipse-demo-projects/tree/master/f746gdiscovery-blinky-micro-os-plus
 * https://github.com/micro-os-plus/eclipse-demo-projects/tree/master/f746gdiscovery-blinky-micro-os-plus/cube-mx which details how to integrate the CubeMX generated code into a uOS++ based project.
 
-The driver was designed for the µOS++ ecosystem, but it can be easily ported to other RTOSes, as it uses only a semaphore and a mutex. It has been tested on the Winbond W25Q128FV and Micrel/ST MT25QL128ABA flash chips, but support for other devices will be  added in the future.
+Since version 2.0 of the driver, the API has been changed for a better integration with the POSIX layer of uOS++. It is an implementation of an uOS++ block device. Although the driver is now more tightly coupled to the µOS++ ecosystem, it can be however ported to other RTOSes. It has been tested on the Winbond W25Q128FV and Micrel/ST MT25QL128ABA flash chips, but support for other devices will be  added in the future.
 
-An optional plain C API is also provided. Note that in the case of the C interface the qspi object is generated dynamically. A static variant will be provided in a future update.
+An optional plain C API is also provided. Note that in the case of the C interface the qspi object is generated dynamically. However, this API may be discontinued in the future, as a better approach is to use the native C Posix interface offered through uOS++.
 
 ## Short theory of operation
 Most QSPI flash devices operate in two basic modes:
@@ -46,5 +48,8 @@ The test performs the following flash operations:
 * Switches the flash in deep sleep mode, then switches the power off.
 
 The C++ version includes timings for most of the operations, whereas the C version does not.
+
+In addition, a test is provided to assess compatibility with the ChaN FAT file system, offered through uOS++; for running this test, you need to install the Chan FAT file system xpack at https://github.com/xpacks/chan-fatfs.git. This xpack contains among other thimgs, C++ diskio wrapper.
+
 
 
