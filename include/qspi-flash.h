@@ -204,8 +204,8 @@ namespace os
         qspi_result_t
         erase (uint32_t address, uint8_t which);
 
-        static constexpr uint8_t VERSION_MAJOR = 1;
-        static constexpr uint8_t VERSION_MINOR = 1;
+        static constexpr uint8_t VERSION_MAJOR = 2;
+        static constexpr uint8_t VERSION_MINOR = 0;
 
         class qspi_intern* pimpl = nullptr;
         uint8_t manufacturer_ID_ = 0;
