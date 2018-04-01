@@ -1,7 +1,7 @@
 /*
  * test-qspi-c-api.c
  *
- * Copyright (c) 2017 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2017, 2018 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -98,13 +98,8 @@ test_qspi (void)
 
   if ((qspi_instance = qspi_new (&hqspi)) != NULL)
     {
-      qspi_power (qspi_instance, true);
-
       do
         {
-          // configure hardware and power the QSPI peripheral
-          qspi_power (qspi_instance, true);
-
           // read memory parameters and initialize system
           if (qspi_initialize (qspi_instance) != qspi_ok)
             {
@@ -123,7 +118,7 @@ test_qspi (void)
                         qspi_get_manufacturer (qspi_instance),
                         qspi_get_memory_type (qspi_instance), sector_size,
                         sector_count);
-          //      break;
+          // break;
 
           // switch mode to memory mapped
           if (qspi_enter_mem_mapped (qspi_instance) != qspi_ok)
@@ -227,8 +222,6 @@ test_qspi (void)
         {
           trace_printf ("Flash chip successfully switched to deep sleep\n");
         }
-
-      qspi_power (qspi_instance, false);
 
       qspi_delete (qspi_instance);
     }
