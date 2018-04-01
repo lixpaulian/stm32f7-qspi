@@ -49,7 +49,7 @@ The test performs the following flash operations:
 
 The C++ version includes timings for most of the operations, whereas the C version does not.
 
-In addition, a test is provided to assess compatibility with the ChaN FAT file system, offered through uOS++; for running this test, you need to install the Chan FAT file system xpack at https://github.com/xpacks/chan-fatfs.git. This xpack contains among other thimgs, C++ diskio wrapper.
+In addition, a test is provided to assess compatibility with the ChaN FAT file system, offered through uOS++; for running this test, you need to install the Chan FAT file system xpack at https://github.com/xpacks/chan-fatfs.git. This xpack contains among other things, a C++ diskio wrapper.
 
 
 
