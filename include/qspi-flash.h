@@ -49,7 +49,7 @@ namespace os
       class qspi_impl : public os::posix::block_device_impl
       {
       public:
-        qspi_impl (os::posix::block_device& self, QSPI_HandleTypeDef* hqspi);
+        qspi_impl (QSPI_HandleTypeDef* hqspi);
 
         ~qspi_impl ();
 
@@ -191,8 +191,6 @@ namespace os
         QSPI_HandleTypeDef* hqspi_;
         os::rtos::semaphore_binary semaphore_
           { "qspi", 0 };
-        os::rtos::mutex mutex_
-          { "qspi" };
 
       private:
         qspi_result_t
@@ -205,7 +203,7 @@ namespace os
         erase (uint32_t address, uint8_t which);
 
         static constexpr uint8_t VERSION_MAJOR = 2;
-        static constexpr uint8_t VERSION_MINOR = 0;
+        static constexpr uint8_t VERSION_MINOR = 10;
 
         class qspi_intern* pimpl = nullptr;
         uint8_t manufacturer_ID_ = 0;
