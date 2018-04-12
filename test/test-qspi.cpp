@@ -64,10 +64,15 @@ using namespace os::driver::stm32f7;
 os::posix::file_descriptors_manager descriptors_manager
   { 8 };
 
-using qspi = os::posix::block_device_implementable<qspi_impl>;
+// Explicit template instantiation.
+template class posix::block_device_lockable<qspi_impl, rtos::mutex>;
+using qspi = posix::block_device_lockable<qspi_impl, rtos::mutex>;
+
+os::rtos::mutex flash_mx
+  { "flash_mx" };
 
 qspi flash
-  { "flash", &hqspi };
+  { "flash", flash_mx, &hqspi };
 
 /**
  * @brief  Status match callback.
@@ -127,7 +132,7 @@ test_qspi (void)
 
   do
     {
-#if 0
+#if 1
       os::posix::block_device* blk_dev;
 
       blk_dev =
