@@ -40,7 +40,6 @@ pn (DWORD pns);
 int
 test_diskio (PDRV pdrv, UINT ncyc, DWORD* buf, UINT sz_buff);
 
-
 using namespace os;
 using namespace os::driver::stm32f7;
 
@@ -49,12 +48,15 @@ os::posix::file_descriptors_manager descriptors_manager
   { 8 };
 
 // Explicit template instantiation.
-template class posix::block_device_implementable<qspi_impl>;
-using qspi = posix::block_device_implementable<qspi_impl>;
+template class posix::block_device_lockable<qspi_impl, rtos::mutex>;
+using qspi = posix::block_device_lockable<qspi_impl, rtos::mutex>;
+
+os::rtos::mutex flash_mx
+  { "flash_mx" };
 
 // /dev/flash
 qspi flash
-  { "flash", &hqspi };
+  { "flash", flash_mx, &hqspi };
 
 /**
  * @brief  Status match callback.
@@ -512,6 +514,5 @@ test_diskio (PDRV pdrv, /* Physical drive number to be checked (all data on the 
 
   return 0;
 }
-
 
 #endif // FILE_SYSTEM_TEST

@@ -39,11 +39,6 @@
 #include "qspi-winbond.h"
 #include "qspi-micron.h"
 
-
-// Explicit template instantiation.
-template class os::posix::block_device_implementable<
-    os::driver::stm32f7::qspi_impl>;
-
 namespace os
 {
   namespace driver
@@ -54,10 +49,7 @@ namespace os
        * @brief Constructor.
        * @param hqspi: HAL qspi handle.
        */
-      qspi_impl::qspi_impl (os::posix::block_device& self,
-                            QSPI_HandleTypeDef* hqspi) :
-          block_device_impl
-            { self }
+      qspi_impl::qspi_impl (QSPI_HandleTypeDef* hqspi)
       {
         trace::printf ("%s(%p) @%p\n", __func__, hqspi, this);
         hqspi_ = hqspi;
@@ -238,72 +230,63 @@ namespace os
         uint8_t buff[3];
         QSPI_CommandTypeDef sCommand;
 
-        if (mutex_.timed_lock (TIMEOUT) == rtos::result::ok)
-          {
-            // Read command settings
-            sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
-            sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
-            sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
-            sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
-            sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
-            sCommand.InstructionMode = QSPI_INSTRUCTION_1_LINE;
-            sCommand.AddressMode = QSPI_ADDRESS_NONE;
-            sCommand.DataMode = QSPI_DATA_1_LINE;
-            sCommand.DummyCycles = 0;
-            sCommand.NbData = 3;
-            sCommand.Instruction = JEDEC_ID;
+        // Read command settings
+        sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
+        sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+        sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
+        sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+        sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
+        sCommand.InstructionMode = QSPI_INSTRUCTION_1_LINE;
+        sCommand.AddressMode = QSPI_ADDRESS_NONE;
+        sCommand.DataMode = QSPI_DATA_1_LINE;
+        sCommand.DummyCycles = 0;
+        sCommand.NbData = 3;
+        sCommand.Instruction = JEDEC_ID;
 
-            // Initiate read and wait for the event
-            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_,
-                                                                  &sCommand,
-                                                                  TIMEOUT);
+        // Initiate read and wait for the event
+        result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
+                                                              TIMEOUT);
+        if (result == ok)
+          {
+            result = (qspi_impl::qspi_result_t) HAL_QSPI_Receive_IT (hqspi_,
+                                                                     buff);
             if (result == ok)
               {
-                result = (qspi_impl::qspi_result_t) HAL_QSPI_Receive_IT (hqspi_,
-                                                                         buff);
-                if (result == ok)
+                if (semaphore_.timed_wait (TIMEOUT) == rtos::result::ok)
                   {
-                    if (semaphore_.timed_wait (TIMEOUT) == rtos::result::ok)
-                      {
-                        manufacturer_ID_ = buff[0];
-                        memory_type_ = buff[1] << 8;
-                        memory_type_ += buff[2];
+                    manufacturer_ID_ = buff[0];
+                    memory_type_ = buff[1] << 8;
+                    memory_type_ += buff[2];
 
-                        // Do we know this device?
-                        result = type_not_found;
-                        for (const qspi_manuf_t* pqm = qspi_manufacturers;
-                            pqm->manufacturer_ID != 0; pqm++)
+                    // Do we know this device?
+                    result = type_not_found;
+                    for (const qspi_manuf_t* pqm = qspi_manufacturers;
+                        pqm->manufacturer_ID != 0; pqm++)
+                      {
+                        if (pqm->manufacturer_ID == manufacturer_ID_)
                           {
-                            if (pqm->manufacturer_ID == manufacturer_ID_)
+                            // Manufacturer found
+                            for (const qspi_device_t* pqd = pqm->devices;
+                                pqd->device_ID != 0; pqd++)
                               {
-                                // Manufacturer found
-                                for (const qspi_device_t* pqd = pqm->devices;
-                                    pqd->device_ID != 0; pqd++)
+                                if (pqd->device_ID == memory_type_)
                                   {
-                                    if (pqd->device_ID == memory_type_)
-                                      {
-                                        // Device found, initialize class
-                                        pmanufacturer_ = pqm->manufacturer_name;
-                                        pdevice_ = pqd;
-                                        pimpl = pqm->qspi_factory ();
-                                        result = ok;
-                                        break;
-                                      }
+                                    // Device found, initialize class
+                                    pmanufacturer_ = pqm->manufacturer_name;
+                                    pdevice_ = pqd;
+                                    pimpl = pqm->qspi_factory ();
+                                    result = ok;
+                                    break;
                                   }
                               }
                           }
                       }
-                    else
-                      {
-                        result = timeout;
-                      }
+                  }
+                else
+                  {
+                    result = timeout;
                   }
               }
-            mutex_.unlock ();
-          }
-        else
-          {
-            result = busy;
           }
         return result;
       }
@@ -319,26 +302,21 @@ namespace os
         qspi_impl::qspi_result_t result = error;
         QSPI_CommandTypeDef sCommand;
 
-        if (mutex_.timed_lock (TIMEOUT) == rtos::result::ok)
-          {
-            // Initial command settings
-            sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
-            sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
-            sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
-            sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
-            sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
-            sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
-            sCommand.AddressMode = QSPI_ADDRESS_NONE;
-            sCommand.DataMode = QSPI_DATA_NONE;
-            sCommand.DummyCycles = 0;
+        // Initial command settings
+        sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
+        sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+        sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
+        sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+        sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
+        sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
+        sCommand.AddressMode = QSPI_ADDRESS_NONE;
+        sCommand.DataMode = QSPI_DATA_NONE;
+        sCommand.DummyCycles = 0;
 
-            // Enable/disable deep sleep
-            sCommand.Instruction = state ? POWER_DOWN : RELEASE_POWER_DOWN;
-            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_,
-                                                                  &sCommand,
-                                                                  TIMEOUT);
-            mutex_.unlock ();
-          }
+        // Enable/disable deep sleep
+        sCommand.Instruction = state ? POWER_DOWN : RELEASE_POWER_DOWN;
+        result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
+                                                              TIMEOUT);
         return result;
       }
 
@@ -356,31 +334,23 @@ namespace os
 
         if (pdevice_ != nullptr)
           {
-            if (mutex_.timed_lock (TIMEOUT) == rtos::result::ok)
-              {
-                sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
-                sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_4_LINES;
-                sCommand.AlternateBytesSize = QSPI_ALTERNATE_BYTES_8_BITS;
-                sCommand.AlternateBytes = 0;	// Continuous read mode off
-                sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
-                sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
-                sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
-                sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
-                sCommand.AddressMode = QSPI_ADDRESS_4_LINES;
-                sCommand.DataMode = QSPI_DATA_4_LINES;
-                sCommand.DummyCycles = pdevice_->dummy_cycles - 2; // Subtract alternate byte
-                sCommand.Instruction = FAST_READ_QUAD_IN_OUT;
+            sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
+            sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_4_LINES;
+            sCommand.AlternateBytesSize = QSPI_ALTERNATE_BYTES_8_BITS;
+            sCommand.AlternateBytes = 0;	// Continuous read mode off
+            sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
+            sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+            sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
+            sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
+            sCommand.AddressMode = QSPI_ADDRESS_4_LINES;
+            sCommand.DataMode = QSPI_DATA_4_LINES;
+            sCommand.DummyCycles = pdevice_->dummy_cycles - 2; // Subtract alternate byte
+            sCommand.Instruction = FAST_READ_QUAD_IN_OUT;
 
-                sMemMappedCfg.TimeOutActivation = QSPI_TIMEOUT_COUNTER_DISABLE;
+            sMemMappedCfg.TimeOutActivation = QSPI_TIMEOUT_COUNTER_DISABLE;
 
-                result = (qspi_impl::qspi_result_t) HAL_QSPI_MemoryMapped (
-                    hqspi_, &sCommand, &sMemMappedCfg);
-                mutex_.unlock ();
-              }
-            else
-              {
-                result = busy;
-              }
+            result = (qspi_impl::qspi_result_t) HAL_QSPI_MemoryMapped (
+                hqspi_, &sCommand, &sMemMappedCfg);
           }
         return result;
       }
@@ -400,56 +370,46 @@ namespace os
 
         if (pdevice_ != nullptr)
           {
-            if (mutex_.timed_lock (TIMEOUT) == rtos::result::ok)
+            // Read command settings
+            sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
+            sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_4_LINES;
+            sCommand.AlternateBytesSize = QSPI_ALTERNATE_BYTES_8_BITS;
+            sCommand.AlternateBytes = 0;	// Continuous read mode off
+            sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
+            sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+            sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
+            sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
+            sCommand.AddressMode = QSPI_ADDRESS_4_LINES;
+            sCommand.DataMode = QSPI_DATA_4_LINES;
+            sCommand.DummyCycles = pdevice_->dummy_cycles - 2; // Subtract alternate byte
+            sCommand.Address = address;
+            sCommand.NbData = count;
+            sCommand.Instruction = FAST_READ_QUAD_IN_OUT;
+
+            // Flush and clean the data cache to mitigate incoherence after
+            // DMA transfers (DTCM RAM is not cached)
+            if ((buff + count) >= (uint8_t *) SRAM1_BASE)
               {
-                // Read command settings
-                sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
-                sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_4_LINES;
-                sCommand.AlternateBytesSize = QSPI_ALTERNATE_BYTES_8_BITS;
-                sCommand.AlternateBytes = 0;	// Continuous read mode off
-                sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
-                sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
-                sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
-                sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
-                sCommand.AddressMode = QSPI_ADDRESS_4_LINES;
-                sCommand.DataMode = QSPI_DATA_4_LINES;
-                sCommand.DummyCycles = pdevice_->dummy_cycles - 2; // Subtract alternate byte
-                sCommand.Address = address;
-                sCommand.NbData = count;
-                sCommand.Instruction = FAST_READ_QUAD_IN_OUT;
+                uint32_t *aligned_buff = (uint32_t *) (((uint32_t) (buff))
+                    & 0xFFFFFFE0);
+                uint32_t aligned_count = (uint32_t) (count & 0xFFFFFFE0) + 32;
+                SCB_CleanInvalidateDCache_by_Addr (aligned_buff, aligned_count);
+              }
 
-                // Flush and clean the data cache to mitigate incoherence after
-                // DMA transfers (DTCM RAM is not cached)
-                if ((buff + count) >= (uint8_t *) SRAM1_BASE)
-                  {
-                    uint32_t *aligned_buff = (uint32_t *) (((uint32_t) (buff))
-                        & 0xFFFFFFE0);
-                    uint32_t aligned_count = (uint32_t) (count & 0xFFFFFFE0)
-                        + 32;
-                    SCB_CleanInvalidateDCache_by_Addr (aligned_buff,
-                                                       aligned_count);
-                  }
-
-                // Initiate read and wait for the event
-                result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_,
-                                                                      &sCommand,
-                                                                      TIMEOUT);
+            // Initiate read and wait for the event
+            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_,
+                                                                  &sCommand,
+                                                                  TIMEOUT);
+            if (result == ok)
+              {
+                result = (qspi_impl::qspi_result_t) HAL_QSPI_Receive_DMA (
+                    hqspi_, buff);
                 if (result == ok)
                   {
-                    result = (qspi_impl::qspi_result_t) HAL_QSPI_Receive_DMA (
-                        hqspi_, buff);
-                    if (result == ok)
-                      {
-                        result =
-                            (semaphore_.timed_wait (TIMEOUT) == rtos::result::ok) ?
-                                ok : timeout;
-                      }
+                    result =
+                        (semaphore_.timed_wait (TIMEOUT) == rtos::result::ok) ?
+                            ok : timeout;
                   }
-                mutex_.unlock ();
-              }
-            else
-              {
-                result = busy;
               }
           }
         return result;
@@ -518,75 +478,66 @@ namespace os
         QSPI_CommandTypeDef sCommand;
         QSPI_AutoPollingTypeDef sConfig;
 
-        if (mutex_.timed_lock (TIMEOUT) == rtos::result::ok)
-          {
-            // Initial command settings
-            sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
-            sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
-            sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
-            sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
-            sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
-            sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
-            sCommand.AddressMode = QSPI_ADDRESS_NONE;
-            sCommand.DataMode = QSPI_DATA_NONE;
-            sCommand.DummyCycles = 0;
+        // Initial command settings
+        sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
+        sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+        sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
+        sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+        sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
+        sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
+        sCommand.AddressMode = QSPI_ADDRESS_NONE;
+        sCommand.DataMode = QSPI_DATA_NONE;
+        sCommand.DummyCycles = 0;
 
-            // Enable write
-            sCommand.Instruction = WRITE_ENABLE;
+        // Enable write
+        sCommand.Instruction = WRITE_ENABLE;
+        result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
+                                                              TIMEOUT);
+        if (result == ok)
+          {
+            // Initiate write
+            sCommand.Instruction = PAGE_PROGRAM;
+            sCommand.AddressMode = QSPI_ADDRESS_4_LINES;
+            sCommand.DataMode = QSPI_DATA_4_LINES;
+            sCommand.Address = address;
+            sCommand.NbData = count;
             result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_,
                                                                   &sCommand,
                                                                   TIMEOUT);
             if (result == ok)
               {
-                // Initiate write
-                sCommand.Instruction = PAGE_PROGRAM;
-                sCommand.AddressMode = QSPI_ADDRESS_4_LINES;
-                sCommand.DataMode = QSPI_DATA_4_LINES;
-                sCommand.Address = address;
-                sCommand.NbData = count;
-                result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_,
-                                                                      &sCommand,
-                                                                      TIMEOUT);
+                result = (qspi_impl::qspi_result_t) HAL_QSPI_Transmit_DMA (
+                    hqspi_, buff);
                 if (result == ok)
                   {
-                    result = (qspi_impl::qspi_result_t) HAL_QSPI_Transmit_DMA (
-                        hqspi_, buff);
-                    if (result == ok)
+                    if (semaphore_.timed_wait (TIMEOUT) == rtos::result::ok)
                       {
-                        if (semaphore_.timed_wait (TIMEOUT) == rtos::result::ok)
+                        // Set auto-polling and wait for the event
+                        sCommand.AddressMode = QSPI_ADDRESS_NONE;
+                        sCommand.DataMode = QSPI_DATA_4_LINES;
+                        sCommand.Instruction = READ_STATUS_REGISTER;
+                        sConfig.Match = 0;
+                        sConfig.Mask = 1;
+                        sConfig.MatchMode = QSPI_MATCH_MODE_AND;
+                        sConfig.StatusBytesSize = 1;
+                        sConfig.Interval = 0x10;
+                        sConfig.AutomaticStop = QSPI_AUTOMATIC_STOP_ENABLE;
+                        result =
+                            (qspi_impl::qspi_result_t) HAL_QSPI_AutoPolling_IT (
+                                hqspi_, &sCommand, &sConfig);
+                        if (result == ok)
                           {
-                            // Set auto-polling and wait for the event
-                            sCommand.AddressMode = QSPI_ADDRESS_NONE;
-                            sCommand.DataMode = QSPI_DATA_4_LINES;
-                            sCommand.Instruction = READ_STATUS_REGISTER;
-                            sConfig.Match = 0;
-                            sConfig.Mask = 1;
-                            sConfig.MatchMode = QSPI_MATCH_MODE_AND;
-                            sConfig.StatusBytesSize = 1;
-                            sConfig.Interval = 0x10;
-                            sConfig.AutomaticStop = QSPI_AUTOMATIC_STOP_ENABLE;
                             result =
-                                (qspi_impl::qspi_result_t) HAL_QSPI_AutoPolling_IT (
-                                    hqspi_, &sCommand, &sConfig);
-                            if (result == ok)
-                              {
-                                result =
-                                    (semaphore_.timed_wait (TIMEOUT)
-                                        == rtos::result::ok) ? ok : timeout;
-                              }
+                                (semaphore_.timed_wait (TIMEOUT)
+                                    == rtos::result::ok) ? ok : timeout;
                           }
-                        else
-                          {
-                            result = timeout;
-                          }
+                      }
+                    else
+                      {
+                        result = timeout;
                       }
                   }
               }
-            mutex_.unlock ();
-          }
-        else
-          {
-            result = busy;
           }
         return result;
       }
@@ -607,65 +558,58 @@ namespace os
 
         if (pdevice_ != nullptr)
           {
-            if (mutex_.timed_lock (TIMEOUT) == rtos::result::ok)
-              {
-                // Initial command settings
-                sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
-                sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
-                sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
-                sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
-                sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
-                sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
-                sCommand.AddressMode = QSPI_ADDRESS_NONE;
-                sCommand.DataMode = QSPI_DATA_NONE;
-                sCommand.DummyCycles = 0;
+            // Initial command settings
+            sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
+            sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+            sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
+            sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+            sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
+            sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
+            sCommand.AddressMode = QSPI_ADDRESS_NONE;
+            sCommand.DataMode = QSPI_DATA_NONE;
+            sCommand.DummyCycles = 0;
 
-                // Enable write
-                sCommand.Instruction = WRITE_ENABLE;
+            // Enable write
+            sCommand.Instruction = WRITE_ENABLE;
+            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_,
+                                                                  &sCommand,
+                                                                  TIMEOUT);
+            if (result == ok)
+              {
+                // Initiate erase
+                sCommand.Instruction = which;
+                sCommand.AddressMode =
+                    (which == CHIP_ERASE) ? QSPI_ADDRESS_NONE : //
+                        QSPI_ADDRESS_4_LINES;
+                sCommand.DataMode = QSPI_DATA_NONE;
+                sCommand.Address = address;
                 result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_,
                                                                       &sCommand,
                                                                       TIMEOUT);
                 if (result == ok)
                   {
-                    // Initiate erase
-                    sCommand.Instruction = which;
-                    sCommand.AddressMode =
-                        (which == CHIP_ERASE) ? QSPI_ADDRESS_NONE : //
-                            QSPI_ADDRESS_4_LINES;
-                    sCommand.DataMode = QSPI_DATA_NONE;
-                    sCommand.Address = address;
-                    result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (
-                        hqspi_, &sCommand, TIMEOUT);
+                    // Set auto-polling and wait for the event
+                    sCommand.Instruction = READ_STATUS_REGISTER;
+                    sCommand.AddressMode = QSPI_ADDRESS_NONE;
+                    sCommand.DataMode = QSPI_DATA_4_LINES;
+                    sConfig.Match = 0;
+                    sConfig.Mask = 1;
+                    sConfig.MatchMode = QSPI_MATCH_MODE_AND;
+                    sConfig.StatusBytesSize = 1;
+                    sConfig.Interval = 0x10;
+                    sConfig.AutomaticStop = QSPI_AUTOMATIC_STOP_ENABLE;
+                    result =
+                        (qspi_impl::qspi_result_t) HAL_QSPI_AutoPolling_IT (
+                            hqspi_, &sCommand, &sConfig);
                     if (result == ok)
                       {
-                        // Set auto-polling and wait for the event
-                        sCommand.Instruction = READ_STATUS_REGISTER;
-                        sCommand.AddressMode = QSPI_ADDRESS_NONE;
-                        sCommand.DataMode = QSPI_DATA_4_LINES;
-                        sConfig.Match = 0;
-                        sConfig.Mask = 1;
-                        sConfig.MatchMode = QSPI_MATCH_MODE_AND;
-                        sConfig.StatusBytesSize = 1;
-                        sConfig.Interval = 0x10;
-                        sConfig.AutomaticStop = QSPI_AUTOMATIC_STOP_ENABLE;
                         result =
-                            (qspi_impl::qspi_result_t) HAL_QSPI_AutoPolling_IT (
-                                hqspi_, &sCommand, &sConfig);
-                        if (result == ok)
-                          {
-                            result =
-                                (semaphore_.timed_wait (
-                                    (which == CHIP_ERASE) ? CHIP_ERASE_TIMEOUT : //
-                                        ERASE_TIMEOUT) == rtos::result::ok) ?
-                                    ok : timeout;
-                          }
+                            (semaphore_.timed_wait (
+                                (which == CHIP_ERASE) ? CHIP_ERASE_TIMEOUT : //
+                                    ERASE_TIMEOUT) == rtos::result::ok) ?
+                                ok : timeout;
                       }
                   }
-                mutex_.unlock ();
-              }
-            else
-              {
-                result = busy;
               }
           }
         return result;
@@ -718,33 +662,28 @@ namespace os
         qspi_impl::qspi_result_t result = busy;
         QSPI_CommandTypeDef sCommand;
 
-        if (mutex_.timed_lock (TIMEOUT) == rtos::result::ok)
-          {
-            // Initial command settings
-            sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
-            sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
-            sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
-            sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
-            sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
-            sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
-            sCommand.AddressMode = QSPI_ADDRESS_NONE;
-            sCommand.DataMode = QSPI_DATA_NONE;
-            sCommand.DummyCycles = 0;
+        // Initial command settings
+        sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
+        sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+        sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
+        sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+        sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
+        sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
+        sCommand.AddressMode = QSPI_ADDRESS_NONE;
+        sCommand.DataMode = QSPI_DATA_NONE;
+        sCommand.DummyCycles = 0;
 
-            // Enable reset
-            sCommand.Instruction = RESET_ENABLE;
+        // Enable reset
+        sCommand.Instruction = RESET_ENABLE;
+        result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
+                                                              TIMEOUT);
+        if (result == ok)
+          {
+            // Send reset command
+            sCommand.Instruction = RESET_DEVICE;
             result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_,
                                                                   &sCommand,
                                                                   TIMEOUT);
-            if (result == ok)
-              {
-                // Send reset command
-                sCommand.Instruction = RESET_DEVICE;
-                result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_,
-                                                                      &sCommand,
-                                                                      TIMEOUT);
-              }
-            mutex_.unlock ();
           }
         return result;
       }
