@@ -63,12 +63,25 @@ namespace os
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 
+      //----------------- POSIX interface ------------------------------
+
+      /**
+       * @brief Check if the device is opened
+       * @return Returns true if the device is already opened, false otherwise
+       */
       bool
       qspi_impl::do_is_opened (void)
       {
         return is_opened_;
       }
 
+      /**
+       * @brief Open the block device
+       * @param path: path to the device.
+       * @param oflag: flags.
+       * @param args: arguments list.
+       * @return 0 if the device was successfully opened, -1 otherwise.
+       */
       int
       qspi_impl::do_vopen (const char* path, int oflag, std::va_list args)
       {
@@ -112,11 +125,18 @@ namespace os
         return result;
       }
 
+      /**
+       * @brief Read a block of data.
+       * @param buf: buffer where the data will be returned.
+       * @param blknum: the block number.
+       * @param nblocks: number of blocks to read.
+       * @return Number of blocks read.
+       */
       ssize_t
       qspi_impl::do_read_block (void* buf, posix::block_device::blknum_t blknum,
                                 std::size_t nblocks)
       {
-        // compute the block number's address
+        // compute the block's address and the total bytes to be read
         uint32_t address = block_logical_size_bytes_ * blknum;
         size_t count = block_logical_size_bytes_ * nblocks;
 
@@ -127,42 +147,137 @@ namespace os
         return nblocks;
       }
 
+      /**
+       * @brief Write data to the block device.
+       * @param buf: buffer with the data to be written.
+       * @param blknum: the block number.
+       * @param nblocks: number of blocks to be written.
+       * @return Number of blocks written.
+       */
       ssize_t
       qspi_impl::do_write_block (const void* buf,
                                  posix::block_device::blknum_t blknum,
                                  std::size_t nblocks)
       {
-        // compute the block's address
+        // compute the block's address and the total bytes to be written
         uint32_t address = block_logical_size_bytes_ * blknum;
         size_t count = block_logical_size_bytes_ * nblocks;
+        bool to_write = false;
 
-        // erase affected blocks
+        // check if we really need to write
+        uint8_t* p = (uint8_t*) buf;
+        for (posix::block_device::blknum_t i = 0; i < count; i++)
+          {
+            if (*p++ != 0xFF)
+              {
+                to_write = true;
+                break;  // yes, we have data to write
+              }
+          }
+
         int i = nblocks;
-        while (i--)
+        if (to_write == false)
           {
-            qspi_impl::erase_sector (blknum++);
+            // nothing to write, only erase then quit
+            while (i--)
+              {
+                qspi_impl::erase_sector (blknum++);
+              }
           }
-
-        if (qspi_impl::write (address, (uint8_t*) buf, count) != ok)
+        else
           {
-            nblocks = 0;
-          }
+            uint32_t sector_256 = 0;
+            p = (uint8_t*) buf;
+            bool to_erase = false;
 
+            do
+              {
+                bool valid_data = false;
+
+                if (qspi_impl::read (address + (sector_256 * sizeof(lbuff_)),
+                                     lbuff_, sizeof(lbuff_)) != ok)
+                  {
+                    break;  // read error, exit
+                  }
+
+                // check if we need to erase before write
+                for (int j = 0; j < (int) sizeof(lbuff_); j++, p++)
+                  {
+                    if (*p != lbuff_[j] && lbuff_[j] != 0xFF)
+                      {
+                        // yes, we must erase before write
+                        to_erase = true;
+                        break;
+                      }
+                    if (*p != 0xFF && *p != lbuff_[j])
+                      {
+                        valid_data = true;
+                      }
+                  }
+                if (to_erase)
+                  {
+                    break;
+                  }
+
+                // sector already erased, just write but only if whole data != 0xFF
+                if (valid_data)
+                  {
+                    if (qspi_impl::write (
+                        address + (sector_256 * sizeof(lbuff_)),
+                        (uint8_t*) buf + (sector_256 * sizeof(lbuff_)),
+                        sizeof(lbuff_)) != ok)
+                      {
+                        nblocks = 0;
+                        break;
+                      }
+                  }
+                sector_256++;
+              }
+            while (p < ((uint8_t*) buf + count));
+
+            if (to_erase == true && nblocks)
+              {
+                // write without erase did not work
+                // so erase first the blocks to be written
+                while (i--)
+                  {
+                    qspi_impl::erase_sector (blknum++);
+                  }
+
+                if (qspi_impl::write (address, (uint8_t*) buf, count) != ok)
+                  {
+                    nblocks = 0;
+                  }
+              }
+          }
         return nblocks;
       }
 
+      /**
+       * @brief Control the device parameters.
+       * @param request: command to the device.
+       * @param args: command's parameter(s).
+       * @return 0 if successfull, -1 otherwise.
+       */
       int
       qspi_impl::do_vioctl (int request, std::va_list args)
       {
         return -1;
       }
 
+      /**
+       * @brief Synch (flush) the data to the device.
+       */
       void
       qspi_impl::do_sync (void)
       {
         ;
       }
 
+      /**
+       * @brief Close the block device.
+       * @return 0 if successfull, -1 otherwise.
+       */
       int
       qspi_impl::do_close (void)
       {
@@ -176,6 +291,8 @@ namespace os
 
         return 0;
       }
+
+      //------------- End of POSIX interface ---------------------------
 
       /**
        * @brief  Read the flash chip ID and initialize the internal structures accordingly.

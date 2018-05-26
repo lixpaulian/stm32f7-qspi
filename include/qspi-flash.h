@@ -203,7 +203,7 @@ namespace os
         erase (uint32_t address, uint8_t which);
 
         static constexpr uint8_t VERSION_MAJOR = 2;
-        static constexpr uint8_t VERSION_MINOR = 10;
+        static constexpr uint8_t VERSION_MINOR = 11;
 
         class qspi_intern* pimpl = nullptr;
         uint8_t manufacturer_ID_ = 0;
@@ -211,6 +211,7 @@ namespace os
         const char* pmanufacturer_ = nullptr;
         const qspi_device_t* pdevice_ = nullptr;
         bool volatile is_opened_ = false;
+        uint8_t lbuff_[256];
 
       };
 
