@@ -86,7 +86,8 @@ namespace os
         do_close (void) override;
 
         void
-        get_version (uint8_t& version_major, uint8_t& version_minor, uint8_t& version_patch);
+        get_version (uint8_t& version_major, uint8_t& version_minor,
+                     uint8_t& version_patch);
 
         qspi_result_t
         sleep (bool state);
@@ -232,7 +233,8 @@ namespace os
       };
 
       inline void
-      qspi_impl::get_version (uint8_t& version_major, uint8_t& version_minor, uint8_t& version_patch)
+      qspi_impl::get_version (uint8_t& version_major, uint8_t& version_minor,
+                              uint8_t& version_patch)
       {
         version_major = VERSION_MAJOR;
         version_minor = VERSION_MINOR;
