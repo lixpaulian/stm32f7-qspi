@@ -1,7 +1,7 @@
 /*
  * qspi-flash-c-wrapper.cpp
  *
- * Copyright (c) 2017, 2018 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2017, 2018, 2020 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -65,13 +65,14 @@ qspi_delete (qspi_t* qspi_instance)
  * @param  qspi_instance: pointer to the qspi object.
  * @param  version_major: pointer where the major version number will be returned to.
  * @param  version_minor: pointer where the minor version number will be returned to.
+ * @param  version_patch: pointer where the patch number will be returned to.
  */
 void
 qspi_get_version (qspi_t* qspi_instance, uint8_t* version_major,
-                  uint8_t* version_minor)
+                  uint8_t* version_minor, uint8_t* version_patch)
 {
   ((reinterpret_cast<qspi_c*> (qspi_instance))->impl ()).get_version (
-      *version_major, *version_minor);
+      *version_major, *version_minor, *version_patch);
 }
 
 /**

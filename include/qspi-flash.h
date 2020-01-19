@@ -1,7 +1,7 @@
 /*
  * qspi-flash.h
  *
- * Copyright (c) 2016-2018 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2016-2018, 2020 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -86,7 +86,7 @@ namespace os
         do_close (void) override;
 
         void
-        get_version (uint8_t& version_major, uint8_t& version_minor);
+        get_version (uint8_t& version_major, uint8_t& version_minor, uint8_t& version_patch);
 
         qspi_result_t
         sleep (bool state);
@@ -203,7 +203,8 @@ namespace os
         erase (uint32_t address, uint8_t which);
 
         static constexpr uint8_t VERSION_MAJOR = 2;
-        static constexpr uint8_t VERSION_MINOR = 11;
+        static constexpr uint8_t VERSION_MINOR = 1;
+        static constexpr uint8_t VERSION_PATCH = 2;
 
         class qspi_intern* pimpl = nullptr;
         uint8_t manufacturer_ID_ = 0;
@@ -231,10 +232,11 @@ namespace os
       };
 
       inline void
-      qspi_impl::get_version (uint8_t& version_major, uint8_t& version_minor)
+      qspi_impl::get_version (uint8_t& version_major, uint8_t& version_minor, uint8_t& version_patch)
       {
         version_major = VERSION_MAJOR;
         version_minor = VERSION_MINOR;
+        version_patch = VERSION_PATCH;
       }
 
       inline qspi_impl::qspi_result_t
