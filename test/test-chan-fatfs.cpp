@@ -27,25 +27,30 @@
 #include "sysconfig.h"
 #include "test-chan-fatfs.h"
 
-#if FILE_SYSTEM_TEST == true
+using namespace os;
+using namespace os::driver::stm32f7;
+
+#if FS_ENABLED == true
 
 extern "C"
 {
   QSPI_HandleTypeDef hqspi;
 }
 
+#if FILE_SYSTEM_TEST == true
 static DWORD
 pn (DWORD pns);
 
 int
 test_diskio (PDRV pdrv, UINT ncyc, DWORD* buf, UINT sz_buff);
+#endif
 
-using namespace os;
-using namespace os::driver::stm32f7;
 
+#if CONSOLE_ON_VCP == false
 // Static manager
 os::posix::file_descriptors_manager descriptors_manager
   { 8 };
+#endif
 
 // Explicit template instantiation.
 template class posix::block_device_lockable<qspi_impl, rtos::mutex>;
@@ -103,8 +108,11 @@ HAL_QSPI_TxCpltCallback (QSPI_HandleTypeDef *phqspi)
 rtos::mutex mx_fat
   { "mx_fat" };
 
-posix::chan_fatfs_file_system_lockable<rtos::mutex> fs
+posix::chan_fatfs_file_system_lockable<rtos::mutex> fat_fs
   { "fat", flash, mx_fat };
+
+
+#if FILE_SYSTEM_TEST == true
 
 uint8_t buff[4096 + 10];
 
@@ -516,3 +524,5 @@ test_diskio (PDRV pdrv, /* Physical drive number to be checked (all data on the 
 }
 
 #endif // FILE_SYSTEM_TEST
+
+#endif // FS_ENABLED
