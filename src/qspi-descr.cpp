@@ -38,25 +38,43 @@ namespace os
     namespace stm32f7
     {
 
-      // Micron devices
+      // Micron devices; accepted dummy cycles can be between 1 and 14
       const qspi_device_t micron_devices[] =
         {
-          { 0xBA18, 4096, "MT25QL128ABA", true, 8 },// use even # of dummy cycles!
-              { 0xBB18, 4096, "MT25QL128ABA", true, 8 },
-              { } //
+          { 0xBA18, 4096, "MT25QL128ABA", 0, QSPI_ALTERNATE_BYTES_NONE,
+          QSPI_ALTERNATE_BYTES_8_BITS, 8, 0, true },
+
+          { 0xBB18, 4096, "MT25QL128ABA", 0, QSPI_ALTERNATE_BYTES_NONE,
+          QSPI_ALTERNATE_BYTES_8_BITS, 8, 0, true },
+
+          { } //
         };
 
-      // Winbond devices
+      // Winbond devices; accepted dummy cycles can be either 2, 4, 6 or 8
       const qspi_device_t winbond_devices[] =
         {
-          { 0x4016, 4096, "W25Q32FV", false, 6 },	// use even # of dummy cycles!
-              { 0x6016, 4096, "W25Q32FV", false, 6 },
-              { 0x4017, 4096, "W25Q64FV", false, 6 },
-              { 0x6017, 4096, "W25Q64FV", false, 6 },
-              { 0x4018, 4096, "W25Q128FV", false, 6 },
-              { 0x6018, 4096, "W25Q128FV", false, 6 },
-              { 0x7018, 4096, "W25Q128JV", true, 6 },
-              { } //
+          { 0x4016, 4096, "W25Q32FV", 0xF, QSPI_ALTERNATE_BYTES_4_LINES,
+          QSPI_ALTERNATE_BYTES_8_BITS, 6, 2, false },
+
+          { 0x6016, 4096, "W25Q32FV", 0xF, QSPI_ALTERNATE_BYTES_4_LINES,
+          QSPI_ALTERNATE_BYTES_8_BITS, 6, 2, false },
+
+          { 0x4017, 4096, "W25Q64FV", 0xF, QSPI_ALTERNATE_BYTES_4_LINES,
+          QSPI_ALTERNATE_BYTES_8_BITS, 6, 2, false },
+
+          { 0x6017, 4096, "W25Q64FV", 0xF, QSPI_ALTERNATE_BYTES_4_LINES,
+          QSPI_ALTERNATE_BYTES_8_BITS, 6, 2, false },
+
+          { 0x4018, 4096, "W25Q128FV", 0xF, QSPI_ALTERNATE_BYTES_4_LINES,
+          QSPI_ALTERNATE_BYTES_8_BITS, 6, 2, false },
+
+          { 0x6018, 4096, "W25Q128FV", 0xF, QSPI_ALTERNATE_BYTES_4_LINES,
+          QSPI_ALTERNATE_BYTES_8_BITS, 6, 2, false },
+
+          { 0x7018, 4096, "W25Q128JV", 0xF, QSPI_ALTERNATE_BYTES_4_LINES,
+          QSPI_ALTERNATE_BYTES_8_BITS, 6, 2, true },
+
+          { } //
         };
 
       // Factories for the manufacturer's table

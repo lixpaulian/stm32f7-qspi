@@ -47,8 +47,14 @@ namespace os
         uint16_t device_ID;
         uint16_t sector_size;
         const char* device_name;
-        bool DTR_support;
-        uint8_t dummy_cycles;	// dummy cycles in quad fast read mode
+
+        // following parameters used only in fast read mode
+        uint32_t alt_bytes;       // optional alt bytes
+        uint32_t alt_bytes_mode;  // none, one, two or four lines
+        uint32_t alt_bytes_size;  // 8, 16 or 32 bits
+        uint8_t dummy_cycles;     // dummy cycles
+        uint8_t alt_bytes_cycles; // alt bytes cycles to subtract from dummy cycles
+        bool DDR_support;         // dual data rate (not used for now)
       } qspi_device_t;
 
       typedef struct qspi_manuf_s
