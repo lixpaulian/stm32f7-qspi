@@ -185,7 +185,8 @@ namespace os
         static constexpr uint32_t one_ms = 1000
             / os::rtos::sysclock.frequency_hz;
         static constexpr uint32_t one_sec = 1000 * one_ms;
-        static constexpr uint32_t TIMEOUT = 100 * one_ms;
+        static constexpr uint32_t TIMEOUT = 10 * one_ms;
+        static constexpr uint32_t WRITE_TIMEOUT = 50 * one_ms;
         static constexpr uint32_t ERASE_TIMEOUT = 2 * one_sec;
         static constexpr uint32_t CHIP_ERASE_TIMEOUT = 200 * one_sec;
 
