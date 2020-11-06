@@ -7,6 +7,8 @@
 #ifndef TEST_TEST_CHAN_FATFS_H_
 #define TEST_TEST_CHAN_FATFS_H_
 
+void
+init_block_devices (void);
 
 int
 test_ff ();

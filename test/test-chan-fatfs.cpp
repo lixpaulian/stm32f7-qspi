@@ -45,7 +45,6 @@ int
 test_diskio (PDRV pdrv, UINT ncyc, DWORD* buf, UINT sz_buff);
 #endif
 
-
 #if CONSOLE_ON_VCP == false
 // Static manager
 os::posix::file_descriptors_manager descriptors_manager
@@ -69,7 +68,7 @@ qspi flash
  * @retval None
  */
 void
-HAL_QSPI_StatusMatchCallback (QSPI_HandleTypeDef *phqspi)
+HAL_QSPI_StatusMatchCallback (QSPI_HandleTypeDef* phqspi)
 {
   if (phqspi == &hqspi)
     {
@@ -83,7 +82,7 @@ HAL_QSPI_StatusMatchCallback (QSPI_HandleTypeDef *phqspi)
  * @retval None
  */
 void
-HAL_QSPI_RxCpltCallback (QSPI_HandleTypeDef *phqspi)
+HAL_QSPI_RxCpltCallback (QSPI_HandleTypeDef* phqspi)
 {
   if (phqspi == &hqspi)
     {
@@ -97,7 +96,7 @@ HAL_QSPI_RxCpltCallback (QSPI_HandleTypeDef *phqspi)
  * @retval None
  */
 void
-HAL_QSPI_TxCpltCallback (QSPI_HandleTypeDef *phqspi)
+HAL_QSPI_TxCpltCallback (QSPI_HandleTypeDef* phqspi)
 {
   if (phqspi == &hqspi)
     {
@@ -108,9 +107,88 @@ HAL_QSPI_TxCpltCallback (QSPI_HandleTypeDef *phqspi)
 rtos::mutex mx_fat
   { "mx_fat" };
 
+#ifdef DISCO
+
 posix::chan_fatfs_file_system_lockable<rtos::mutex> fat_fs
   { "fat", flash, mx_fat };
 
+#endif
+
+#ifdef M717
+
+// explicit template instantiation
+template class posix::block_device_partition_implementable<>;
+using partition = os::posix::block_device_partition_implementable<>;
+
+// instantiate the partitions
+// /dev/fat
+partition fat
+  { "fat", flash };
+
+// /dev/fifo
+partition fifo
+  { "fifo", flash };
+
+// /dev/config
+partition p_config
+  { "config", flash };
+
+// /dev/ro
+partition ro
+  { "read-only", flash };
+
+// /dev/log
+partition logp
+  { "log", flash };
+
+posix::chan_fatfs_file_system_lockable<rtos::mutex> fat_fs
+  { "fat-fs", fat, mx_fat };
+
+/**
+ * @brief Initialise all block devices, partitions, the log system and the
+ *      historians database.
+ */
+void
+init_block_devices (void)
+{
+  posix::block_device::blknum_t bks = 0;
+
+  // The number of blocks is known only after open().
+  if (flash.open () < 0)
+    {
+      os::trace::printf ("Failed to open the flash block device\n");
+    }
+  else
+    {
+      bks = flash.blocks ();
+
+      /*
+       * Define partitions:
+       *     - FIFO partition -> 3 MBytes (768 blocks)
+       *     - Log partition -> ~1 MByte (247 blocks)
+       *     - Configuration partition -> 32 Kbytes (8 blocks)
+       *     - Read-only partition -> 4096 Bytes (1 block)
+       *     - Main partition for FAT -> the rest, i.e. 12 MBytes
+       *        (3072 blocks for 16 MB flash chips)
+       */
+
+      static constexpr std::size_t fifo_size = 768;
+      static constexpr std::size_t log_size = 247;
+      static constexpr std::size_t config_size = 8;
+      static constexpr std::size_t ro_size = 1;
+      std::size_t fat_size = bks
+          - (fifo_size + log_size + config_size + ro_size);
+
+      // configure the partitions
+      fat.configure (0, fat_size);
+
+      fifo.configure (fat_size, fifo_size);
+      p_config.configure (fat_size + fifo_size + log_size, config_size);
+      ro.configure (fat_size + fifo_size + log_size + config_size, ro_size);
+      logp.configure (fat_size + fifo_size, log_size);
+    }
+}
+#endif
 
 #if FILE_SYSTEM_TEST == true
 
