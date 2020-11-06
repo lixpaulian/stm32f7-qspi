@@ -78,7 +78,7 @@ namespace os
             sCommand.DataMode = QSPI_DATA_1_LINE;
             sCommand.Instruction = WRITE_STATUS_REGISTER_2;
             result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (
-                pq->hqspi_, &sCommand, qspi_impl::TIMEOUT);
+                pq->hqspi_, &sCommand, qspi_impl::WRITE_TIMEOUT);
             if (result == qspi_impl::ok)
               {
                 datareg = 2;
