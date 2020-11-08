@@ -1,7 +1,7 @@
 /*
  * qspi-flash-c-api.h
  *
- * Copyright (c) 2017, 2018 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2017, 2018, 2020 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -55,7 +55,7 @@ extern "C"
     ;
   } qspi_t;
 
-  qspi_t *
+  qspi_t*
   qspi_new (QSPI_HandleTypeDef* hqspi);
 
   void
@@ -63,7 +63,7 @@ extern "C"
 
   void
   qspi_get_version (qspi_t* qspi_instance, uint8_t* version_major,
-               uint8_t* version_minor);
+                    uint8_t* version_minor, uint8_t* version_patch);
 
   void
   qspi_power (qspi_t* qspi_instance, bool state);
