@@ -1,7 +1,7 @@
 /*
  * qspi-flash.cpp
  *
- * Copyright (c) 2016-2018 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2016-2020 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -452,16 +452,17 @@ namespace os
         if (pdevice_ != nullptr)
           {
             sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
-            sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_4_LINES;
-            sCommand.AlternateBytesSize = QSPI_ALTERNATE_BYTES_8_BITS;
-            sCommand.AlternateBytes = 0;	// Continuous read mode off
+            sCommand.AlternateByteMode = pdevice_->alt_bytes_mode;
+            sCommand.AlternateBytesSize = pdevice_->alt_bytes_size;
+            sCommand.AlternateBytes = pdevice_->alt_bytes;
             sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
             sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
             sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
             sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
             sCommand.AddressMode = QSPI_ADDRESS_4_LINES;
             sCommand.DataMode = QSPI_DATA_4_LINES;
-            sCommand.DummyCycles = pdevice_->dummy_cycles - 2; // Subtract alternate byte
+            sCommand.DummyCycles = pdevice_->dummy_cycles
+                - pdevice_->alt_bytes_cycles;
             sCommand.Instruction = FAST_READ_QUAD_IN_OUT;
 
             sMemMappedCfg.TimeOutActivation = QSPI_TIMEOUT_COUNTER_DISABLE;
@@ -489,36 +490,52 @@ namespace os
           {
             // Read command settings
             sCommand.AddressSize = QSPI_ADDRESS_24_BITS;
-            sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_4_LINES;
-            sCommand.AlternateBytesSize = QSPI_ALTERNATE_BYTES_8_BITS;
-            sCommand.AlternateBytes = 0;	// Continuous read mode off
+            sCommand.AlternateByteMode = pdevice_->alt_bytes_mode;
+            sCommand.AlternateBytesSize = pdevice_->alt_bytes_size;
+            sCommand.AlternateBytes = pdevice_->alt_bytes;
             sCommand.DdrMode = QSPI_DDR_MODE_DISABLE;
             sCommand.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
             sCommand.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
             sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
             sCommand.AddressMode = QSPI_ADDRESS_4_LINES;
             sCommand.DataMode = QSPI_DATA_4_LINES;
-            sCommand.DummyCycles = pdevice_->dummy_cycles - 2; // Subtract alternate byte
+            sCommand.DummyCycles = pdevice_->dummy_cycles
+                - pdevice_->alt_bytes_cycles;
             sCommand.Address = address;
             sCommand.NbData = count;
             sCommand.Instruction = FAST_READ_QUAD_IN_OUT;
 
-            // Flush and clean the data cache to mitigate incoherence after
-            // DMA transfers (DTCM RAM is not cached)
-            if ((buff + count) >= (uint8_t *) SRAM1_BASE)
+            // Initiate read, then wait for the event
+            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, //
+                &sCommand, TIMEOUT);
+            if (result != ok)
               {
-                uint32_t *aligned_buff = (uint32_t *) (((uint32_t) (buff))
-                    & 0xFFFFFFE0);
-                uint32_t aligned_count = (uint32_t) (count & 0xFFFFFFE0) + 32;
-                SCB_CleanInvalidateDCache_by_Addr (aligned_buff, aligned_count);
+                /**
+                 * This is a workaround for the QSPI peripheral bug described in
+                 * the ST document ES0290 Rev 7, section 2.4.1.
+                 * Abort the QSPI operation, then retry
+                 */
+                hqspi_->Instance->CR |= QUADSPI_CR_ABORT;
+                hqspi_->State = HAL_QSPI_STATE_READY;
+                result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, //
+                    &sCommand, TIMEOUT);
               }
-
-            // Initiate read and wait for the event
-            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_,
-                                                                  &sCommand,
-                                                                  TIMEOUT);
             if (result == ok)
               {
+                /**
+                 * Flush and clean the data cache to mitigate incoherence before
+                 * a DMA transfer (DTCM RAM is not cached)
+                 */
+                if ((buff + count) >= (uint8_t*) SRAM1_BASE)
+                  {
+                    uint32_t* aligned_buff = (uint32_t*) (((uint32_t) (buff))
+                        & 0xFFFFFFE0);
+                    uint32_t aligned_count = (uint32_t) (count & 0xFFFFFFE0)
+                        + 32;
+                    SCB_CleanInvalidateDCache_by_Addr (aligned_buff,
+                                                       aligned_count);
+                  }
+
                 result = (qspi_impl::qspi_result_t) HAL_QSPI_Receive_DMA (
                     hqspi_, buff);
                 if (result == ok)
@@ -547,16 +564,6 @@ namespace os
 
         if (pdevice_ != nullptr)
           {
-            // Clean the data cache to mitigate incoherence before DMA transfers
-            // (DTCM RAM is not cached)
-            if ((buff + count) >= (uint8_t *) SRAM1_BASE)
-              {
-                uint32_t *aligned_buff = (uint32_t *) (((uint32_t) (buff))
-                    & 0xFFFFFFE0);
-                uint32_t aligned_count = (uint32_t) (count & 0xFFFFFFE0) + 32;
-                SCB_CleanDCache_by_Addr (aligned_buff, aligned_count);
-              }
-
             do
               {
                 in_block_count = 0x100 - (address & 0xFF);
@@ -618,11 +625,23 @@ namespace os
             sCommand.DataMode = QSPI_DATA_4_LINES;
             sCommand.Address = address;
             sCommand.NbData = count;
-            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_,
-                                                                  &sCommand,
-                                                                  TIMEOUT);
+            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, //
+                &sCommand, TIMEOUT);
             if (result == ok)
               {
+                /**
+                 *  Clean the data cache to mitigate incoherence before DMA transfers
+                 *  (DTCM RAM is not cached)
+                 */
+                if ((buff + count) >= (uint8_t*) SRAM1_BASE)
+                  {
+                    uint32_t* aligned_buff = (uint32_t*) (((uint32_t) (buff))
+                        & 0xFFFFFFE0);
+                    uint32_t aligned_count = (uint32_t) (count & 0xFFFFFFE0)
+                        + 32;
+                    SCB_CleanDCache_by_Addr (aligned_buff, aligned_count);
+                  }
+
                 result = (qspi_impl::qspi_result_t) HAL_QSPI_Transmit_DMA (
                     hqspi_, buff);
                 if (result == ok)
@@ -645,7 +664,7 @@ namespace os
                         if (result == ok)
                           {
                             result =
-                                (semaphore_.timed_wait (TIMEOUT)
+                                (semaphore_.timed_wait (WRITE_TIMEOUT)
                                     == rtos::result::ok) ? ok : timeout;
                           }
                       }
@@ -688,9 +707,8 @@ namespace os
 
             // Enable write
             sCommand.Instruction = WRITE_ENABLE;
-            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_,
-                                                                  &sCommand,
-                                                                  TIMEOUT);
+            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, //
+                &sCommand, TIMEOUT);
             if (result == ok)
               {
                 // Initiate erase
@@ -700,9 +718,8 @@ namespace os
                         QSPI_ADDRESS_4_LINES;
                 sCommand.DataMode = QSPI_DATA_NONE;
                 sCommand.Address = address;
-                result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_,
-                                                                      &sCommand,
-                                                                      TIMEOUT);
+                result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, //
+                    &sCommand, TIMEOUT);
                 if (result == ok)
                   {
                     // Set auto-polling and wait for the event
@@ -798,9 +815,8 @@ namespace os
           {
             // Send reset command
             sCommand.Instruction = RESET_DEVICE;
-            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_,
-                                                                  &sCommand,
-                                                                  TIMEOUT);
+            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, //
+                &sCommand, TIMEOUT);
           }
         return result;
       }
