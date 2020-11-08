@@ -1,7 +1,7 @@
 /*
  * test-qspi-config.h
  *
- * Copyright (c) 2017, 2018 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2017-2020 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -35,7 +35,8 @@ extern "C"
 {
 #endif
 
-#define TEST_CPLUSPLUS_API true
+#define TEST_CPLUSPLUS_API true // change to false to run the C API
+#define TEST_VERBOSE false
 
 #ifdef  __cplusplus
 }
