@@ -1,7 +1,7 @@
 /*
  * test-qspi.cpp
  *
- * Copyright (c) 2016, 2017 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2016-2020 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -50,8 +50,6 @@
 #if QSPI_TEST == true
 #if TEST_CPLUSPLUS_API == true
 
-#define TEST_VERBOSE false
-
 extern "C"
 {
   QSPI_HandleTypeDef hqspi;
@@ -80,7 +78,7 @@ qspi flash
  * @retval None
  */
 void
-HAL_QSPI_StatusMatchCallback (QSPI_HandleTypeDef *phqspi)
+HAL_QSPI_StatusMatchCallback (QSPI_HandleTypeDef* phqspi)
 {
   if (phqspi == &hqspi)
     {
@@ -94,7 +92,7 @@ HAL_QSPI_StatusMatchCallback (QSPI_HandleTypeDef *phqspi)
  * @retval None
  */
 void
-HAL_QSPI_RxCpltCallback (QSPI_HandleTypeDef *phqspi)
+HAL_QSPI_RxCpltCallback (QSPI_HandleTypeDef* phqspi)
 {
   if (phqspi == &hqspi)
     {
@@ -108,7 +106,7 @@ HAL_QSPI_RxCpltCallback (QSPI_HandleTypeDef *phqspi)
  * @retval None
  */
 void
-HAL_QSPI_TxCpltCallback (QSPI_HandleTypeDef *phqspi)
+HAL_QSPI_TxCpltCallback (QSPI_HandleTypeDef* phqspi)
 {
   if (phqspi == &hqspi)
     {
@@ -124,15 +122,15 @@ test_qspi (void)
 {
   size_t sector_size;
   posix::block_device::blknum_t sector_count;
-  int total_write = 0;
-  int total_read = 0;
+  rtos::clock::timestamp_t total_write = 0;
+  rtos::clock::timestamp_t total_read = 0;
 
   stopwatch sw
     { };
 
   do
     {
-#if 1
+#if FLASH_LOW_LEVEL_TEST == false
       os::posix::block_device* blk_dev;
 
       blk_dev =
@@ -210,7 +208,7 @@ test_qspi (void)
 
 #else
       uint32_t i;
-      uint8_t *pf = (uint8_t *) 0x90000000; // memory-mapped flash address
+      uint8_t* pf = (uint8_t*) 0x90000000; // memory-mapped flash address
 
       // read memory parameters and initialize system
       if (flash.impl ().initialize () != qspi_impl::ok)
@@ -221,17 +219,16 @@ test_qspi (void)
 
       sector_size = flash.impl ().get_sector_size ();
       sector_count = flash.impl ().get_sector_count ();
-      uint8_t version_major, version_minor;
+      uint8_t version_major, version_minor, version_patch;
 
-      flash.impl ().get_version (version_major, version_minor);
-      trace::printf ("QSPI driver version: %d.%d\n", version_major,
-                     version_minor);
+      flash.impl ().get_version (version_major, version_minor, version_patch);
+      trace::printf ("QSPI driver version: %d.%d.%d\n", version_major,
+                     version_minor, version_patch);
       trace::printf (
           "Flash chip manufacturer: %s, type: %s, sector size: %d bytes, "
           "sector count: %d\n",
           flash.impl ().get_manufacturer (), flash.impl ().get_memory_type (),
           sector_size, sector_count);
-//      break;
 
       // switch mode to memory mapped
       if (flash.impl ().enter_mem_mapped () != qspi_impl::ok)
@@ -240,7 +237,6 @@ test_qspi (void)
           break;
         }
       trace::printf ("Entered memory mapped mode\n");
-//      break;
 
       // check if flash is erased
       sw.start ();
@@ -263,7 +259,6 @@ test_qspi (void)
         {
           trace::printf ("Memory mapped mode switched off\n");
         }
-//      break;
 
       // if not clear, erase whole flash chip
       if (i < (sector_count * sector_size))
@@ -278,11 +273,10 @@ test_qspi (void)
             }
           trace::printf ("Erased in %.2f s\n", sw.stop () / (float) 1000000);
         }
-//      break;
 
       // get two RAM buffers
-      uint8_t *pw = new uint8_t[sector_size];
-      uint8_t *pr = new uint8_t[sector_size];
+      uint8_t* pw = new uint8_t[sector_size];
+      uint8_t* pr = new uint8_t[sector_size];
       uint32_t j;
 
       trace::printf ("Write/read test started...\n");
@@ -322,27 +316,29 @@ test_qspi (void)
               total_read += sw.stop ();
 
               // compare data
-#if true
-              if (memcmp (pw, pr, sector_size) != 0)
-                {
-                  trace::printf ("Compare error at block %d\n", j);
-                  break;
-                }
-#else
-              int k;
+#if TEST_VERBOSE == true
+              size_t k;
               for (k = 0; k < sector_size; k++)
                 {
                   if (*(pr + k) != *(pw + k))
                     {
-                      trace::printf ("Compare error at block %d, count %d\n", j, k);
+                      trace::printf ("Compare error at block %d, count %d\n", j,
+                                     k);
                       for (i = 0; i < 16; i++)
-                      trace::printf ("%02X<->%02X  ", *(pw + k + i), *(pr + k + i));
+                        trace::printf ("%02X<->%02X  ", *(pw + k + i),
+                                       *(pr + k + i));
                       trace::putchar ('\n');
                       break;
                     }
                 }
               if (k != sector_size)
-              break;
+                break;
+#else
+              if (memcmp (pw, pr, sector_size) != 0)
+                {
+                  trace::printf ("Compare error at block %d\n", j);
+                  break;
+                }
 #endif
             }
 

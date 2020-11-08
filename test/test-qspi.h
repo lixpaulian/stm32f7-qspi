@@ -1,7 +1,7 @@
 /*
  * test-qspi.h
  *
- * Copyright (c) 2016-2018 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2016-2020 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -48,7 +48,7 @@ public:
   void
   start (void);
 
-  uint32_t
+  os::rtos::clock::timestamp_t
   stop (void);
 
 private:
@@ -61,10 +61,10 @@ stopwatch::start (void)
   lap_ = os::rtos::hrclock.now ();
 }
 
-inline uint32_t
+inline os::rtos::clock::timestamp_t
 stopwatch::stop (void)
 {
-  return (uint32_t) ((os::rtos::hrclock.now () - lap_)
+  return ((os::rtos::hrclock.now () - lap_)
       / (SystemCoreClock / 1000000));
 }
 
