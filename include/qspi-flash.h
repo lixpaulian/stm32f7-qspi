@@ -204,9 +204,15 @@ namespace os
         qspi_result_t
         erase (uint32_t address, uint8_t which);
 
+        void
+        invalidate_dcache (uint8_t* ptr, size_t len);
+
+        void
+        clean_dcache (uint8_t* ptr, size_t len);
+
         static constexpr uint8_t VERSION_MAJOR = 2;
         static constexpr uint8_t VERSION_MINOR = 2;
-        static constexpr uint8_t VERSION_PATCH = 0;
+        static constexpr uint8_t VERSION_PATCH = 1;
 
         class qspi_intern* pimpl = nullptr;
         uint8_t manufacturer_ID_ = 0;
@@ -276,6 +282,22 @@ namespace os
       qspi_impl::get_manufacturer (void)
       {
         return pmanufacturer_;
+      }
+
+      inline void
+      qspi_impl::invalidate_dcache (uint8_t* ptr, size_t len)
+      {
+        uint32_t* aligned_buff = (uint32_t*) (((uint32_t) ptr) & 0xFFFFFFE0);
+        uint32_t aligned_count = (uint32_t) (len & 0xFFFFFFE0) + 32;
+        SCB_CleanInvalidateDCache_by_Addr (aligned_buff, aligned_count);
+      }
+
+      inline void
+      qspi_impl::clean_dcache (uint8_t* ptr, size_t len)
+      {
+        uint32_t* aligned_buff = (uint32_t*) (((uint32_t) (ptr)) & 0xFFFFFFE0);
+        uint32_t aligned_count = (uint32_t) (len & 0xFFFFFFE0) + 32;
+        SCB_CleanDCache_by_Addr (aligned_buff, aligned_count);
       }
 
     } /* namespace stm32f7 */

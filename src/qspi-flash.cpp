@@ -528,14 +528,8 @@ namespace os
                  */
                 if ((buff + count) >= (uint8_t*) SRAM1_BASE)
                   {
-                    uint32_t* aligned_buff = (uint32_t*) (((uint32_t) (buff))
-                        & 0xFFFFFFE0);
-                    uint32_t aligned_count = (uint32_t) (count & 0xFFFFFFE0)
-                        + 32;
-                    SCB_CleanInvalidateDCache_by_Addr (aligned_buff,
-                                                       aligned_count);
+                    invalidate_dcache (buff, count);
                   }
-
                 result = (qspi_impl::qspi_result_t) HAL_QSPI_Receive_DMA (
                     hqspi_, buff);
                 if (result == ok)
@@ -635,13 +629,8 @@ namespace os
                  */
                 if ((buff + count) >= (uint8_t*) SRAM1_BASE)
                   {
-                    uint32_t* aligned_buff = (uint32_t*) (((uint32_t) (buff))
-                        & 0xFFFFFFE0);
-                    uint32_t aligned_count = (uint32_t) (count & 0xFFFFFFE0)
-                        + 32;
-                    SCB_CleanDCache_by_Addr (aligned_buff, aligned_count);
+                    clean_dcache (buff, count);
                   }
-
                 result = (qspi_impl::qspi_result_t) HAL_QSPI_Transmit_DMA (
                     hqspi_, buff);
                 if (result == ok)
