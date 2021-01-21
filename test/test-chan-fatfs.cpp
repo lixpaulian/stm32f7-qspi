@@ -32,11 +32,6 @@ using namespace os::driver::stm32f7;
 
 #if FS_ENABLED == true
 
-extern "C"
-{
-  QSPI_HandleTypeDef hqspi;
-}
-
 #if FILE_SYSTEM_TEST == true
 static DWORD
 pn (DWORD pns);
