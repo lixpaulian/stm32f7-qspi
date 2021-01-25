@@ -8,23 +8,23 @@ This is a QSPI serial flash driver for the STM32F7xx family of controllers.
 * MIT
 
 ## Package
-The driver is provided as an XPACK and can be installed in an Eclipse based project using the attached script (however, the include and source paths must be manually added to the project in Eclipse). For more details on XPACKs see https://github.com/xpacks. The installation script requires the helper scripts that can be found at https://github.com/xpacks/scripts.
+The driver is provided as an xPack and can be installed in an Eclipse based project using the attached script (however, the include and source paths must be manually added to the project in Eclipse). For more details on xPacks see https://github.com/xpacks. The installation script requires the helper scripts that can be found at https://github.com/xpacks/scripts.
 
 ## Dependencies
 The driver depends on the following software packages:
 * STM32F7 CMSIS (https://github.com/xpacks/stm32f7-cmsis)
 * STM32F7xx HAL Library (https://github.com/xpacks/stm32f7-hal)
-* uOS++ (https://github.com/micro-os-plus/micro-os-plus-iii), version 6.3.14 and up.
+* µOS++ (https://github.com/micro-os-plus/micro-os-plus-iii), version 6.3.14 and up.
 
 Alternatively, the CMSIS and HAL Library xpacks can be provided by ST's CubeMX code generator (recommened, as the STM32xxx xpacks will probably be discontinued).
 
-The hardware initialisations (uController clock, peripherals clocks, etc.) must be separately performed, normaly in, or called from the initialize_hardware.c file of a GNU MCU Eclipse project. You can do this using the CubeMX code generator from ST. You may find helpful to check the following projects as references:
+The hardware initialisations (µController clock, peripherals clocks, etc.) must be separately performed, normaly in, or called from the initialize_hardware.c file of a GNU MCU Eclipse project. You can do this using the CubeMX code generator from ST. You may find helpful to check the following projects as references:
 * https://github.com/micro-os-plus/eclipse-demo-projects/tree/master/f746gdiscovery-blinky-micro-os-plus
-* https://github.com/micro-os-plus/eclipse-demo-projects/tree/master/f746gdiscovery-blinky-micro-os-plus/cube-mx which details how to integrate the CubeMX generated code into a uOS++ based project.
+* https://github.com/micro-os-plus/eclipse-demo-projects/tree/master/f746gdiscovery-blinky-micro-os-plus/cube-mx which details how to integrate the CubeMX generated code into a µOS++ based project.
 
-Since version 2.0 of the driver, the API has been changed for a better integration with the POSIX layer of uOS++. It is an implementation of an uOS++ block device. Although the driver is now more tightly coupled to the µOS++ ecosystem, it can be however ported to other RTOSes. It has been tested on the Winbond W25Q128FV and Micrel/ST MT25QL128ABA flash chips, but support for other devices will be  added in the future.
+Since version 2.0 of the driver, the API has been changed for a better integration with the POSIX layer of µOS++. It is an implementation of an µOS++ block device. Although the driver is now more tightly coupled to the µOS++ ecosystem, it can be however ported to other RTOSes. It has been tested on the Winbond W25Q128FV and Micrel/ST MT25QL128ABA flash chips, but support for other devices will be  added in the future.
 
-An optional plain C API is also provided. Note that in the case of the C interface the qspi object is generated dynamically. However, this API may be discontinued in the future, as a better approach is to use the native C Posix interface offered through uOS++.
+An optional plain C API is also provided. Note that in the case of the C interface the qspi object is generated dynamically. However, this API may be discontinued in the future, as a better approach is to use the native C Posix interface offered through µOS++.
 
 ## Short theory of operation
 Most QSPI flash devices operate in two basic modes:
@@ -49,7 +49,7 @@ The test performs the following flash operations:
 
 The C++ version includes timings for most of the operations, whereas the C version does not.
 
-In addition, a test is provided to assess compatibility with the ChaN FAT file system, offered through uOS++; for running this test, you need to install the Chan FAT file system xpack at https://github.com/xpacks/chan-fatfs.git. This xpack contains among other things, a C++ diskio wrapper.
+In addition, a test is provided to assess compatibility with the ChaN FAT file system, offered through µOS++; for running this test, you need to install the ChaN FAT file system xPack at https://github.com/xpacks/chan-fatfs.git. This xPack contains among other things, a C++ diskio wrapper.
 
 
 
