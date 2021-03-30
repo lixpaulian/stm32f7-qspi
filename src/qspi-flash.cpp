@@ -1,7 +1,7 @@
 /*
  * qspi-flash.cpp
  *
- * Copyright (c) 2016-2020 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2016-2021 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -361,8 +361,7 @@ namespace os
         sCommand.Instruction = JEDEC_ID;
 
         // Initiate read and wait for the event
-        result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
-                                                              TIMEOUT);
+        result = qspi_command (hqspi_, &sCommand, TIMEOUT);
         if (result == ok)
           {
             result = (qspi_impl::qspi_result_t) HAL_QSPI_Receive_IT (hqspi_,
@@ -432,8 +431,7 @@ namespace os
 
         // Enable/disable deep sleep
         sCommand.Instruction = state ? POWER_DOWN : RELEASE_POWER_DOWN;
-        result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
-                                                              TIMEOUT);
+        result = qspi_command (hqspi_, &sCommand, TIMEOUT);
         return result;
       }
 
@@ -506,20 +504,7 @@ namespace os
             sCommand.Instruction = FAST_READ_QUAD_IN_OUT;
 
             // Initiate read, then wait for the event
-            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, //
-                &sCommand, TIMEOUT);
-            if (result != ok)
-              {
-                /**
-                 * This is a workaround for the QSPI peripheral bug described in
-                 * the ST document ES0290 Rev 7, section 2.4.1.
-                 * Abort the QSPI operation, then retry
-                 */
-                hqspi_->Instance->CR |= QUADSPI_CR_ABORT;
-                hqspi_->State = HAL_QSPI_STATE_READY;
-                result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, //
-                    &sCommand, TIMEOUT);
-              }
+            result = qspi_command (hqspi_, &sCommand, TIMEOUT);
             if (result == ok)
               {
                 /**
@@ -609,8 +594,7 @@ namespace os
 
         // Enable write
         sCommand.Instruction = WRITE_ENABLE;
-        result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
-                                                              TIMEOUT);
+        result = qspi_command (hqspi_, &sCommand, TIMEOUT);
         if (result == ok)
           {
             // Initiate write
@@ -619,8 +603,7 @@ namespace os
             sCommand.DataMode = QSPI_DATA_4_LINES;
             sCommand.Address = address;
             sCommand.NbData = count;
-            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, //
-                &sCommand, TIMEOUT);
+            result = qspi_command (hqspi_, &sCommand, TIMEOUT);
             if (result == ok)
               {
                 /**
@@ -696,8 +679,7 @@ namespace os
 
             // Enable write
             sCommand.Instruction = WRITE_ENABLE;
-            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, //
-                &sCommand, TIMEOUT);
+            result = qspi_command (hqspi_, &sCommand, TIMEOUT);
             if (result == ok)
               {
                 // Initiate erase
@@ -707,8 +689,7 @@ namespace os
                         QSPI_ADDRESS_4_LINES;
                 sCommand.DataMode = QSPI_DATA_NONE;
                 sCommand.Address = address;
-                result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, //
-                    &sCommand, TIMEOUT);
+                result = qspi_command (hqspi_, &sCommand, TIMEOUT);
                 if (result == ok)
                   {
                     // Set auto-polling and wait for the event
@@ -798,14 +779,36 @@ namespace os
 
         // Enable reset
         sCommand.Instruction = RESET_ENABLE;
-        result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, &sCommand,
-                                                              TIMEOUT);
+        result = qspi_command (hqspi_, &sCommand, TIMEOUT);
         if (result == ok)
           {
             // Send reset command
             sCommand.Instruction = RESET_DEVICE;
-            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hqspi_, //
-                &sCommand, TIMEOUT);
+            result = qspi_command (hqspi_, &sCommand, TIMEOUT);
+          }
+        return result;
+      }
+
+      qspi_impl::qspi_result_t
+      qspi_impl::qspi_command (QSPI_HandleTypeDef* hq, QSPI_CommandTypeDef* cmd,
+                               uint32_t timeout)
+      {
+        qspi_impl::qspi_result_t result =
+            (qspi_impl::qspi_result_t) HAL_QSPI_Command (hq, cmd, timeout);
+
+        if (result != ok)
+          {
+            /**
+             * This is a workaround for the QSPI peripheral bug described in
+             * the ST document ES0290 Rev 7, section 2.4.1. Even if not all
+             * conditions apply to the description, the behavior is similar.
+             *
+             * Abort the QSPI operation, then retry
+             */
+            hq->Instance->CR |= QUADSPI_CR_ABORT;
+            hq->State = HAL_QSPI_STATE_READY;
+            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hq, cmd,
+                                                                  timeout);
           }
         return result;
       }

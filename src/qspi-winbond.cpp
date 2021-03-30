@@ -1,7 +1,7 @@
 /*
  * qspi-winbond.cpp
  *
- * Copyright (c) 2016-2020 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2016-2021 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -70,15 +70,14 @@ namespace os
 
         // Enable volatile write
         sCommand.Instruction = VOLATILE_SR_WRITE_ENABLE;
-        result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (
-            pq->hqspi_, &sCommand, qspi_impl::TIMEOUT);
+        result = pq->qspi_command (pq->hqspi_, &sCommand, qspi_impl::TIMEOUT);
         if (result == qspi_impl::ok)
           {
             // Write status register 2 (enable Quad Mode)
             sCommand.DataMode = QSPI_DATA_1_LINE;
             sCommand.Instruction = WRITE_STATUS_REGISTER_2;
-            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (
-                pq->hqspi_, &sCommand, qspi_impl::WRITE_TIMEOUT);
+            result = pq->qspi_command (pq->hqspi_, &sCommand,
+                                       qspi_impl::WRITE_TIMEOUT);
             if (result == qspi_impl::ok)
               {
                 datareg = 2;
@@ -88,15 +87,15 @@ namespace os
                   {
                     sCommand.DataMode = QSPI_DATA_NONE;
                     sCommand.Instruction = ENTER_QUAD_MODE;
-                    result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (
-                        pq->hqspi_, &sCommand, qspi_impl::TIMEOUT);
+                    result = pq->qspi_command (pq->hqspi_, &sCommand,
+                                               qspi_impl::TIMEOUT);
                     if (result == qspi_impl::ok)
                       {
                         sCommand.DataMode = QSPI_DATA_4_LINES;
                         sCommand.InstructionMode = QSPI_INSTRUCTION_4_LINES;
                         sCommand.Instruction = SET_READ_PARAMETERS;
-                        result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (
-                            pq->hqspi_, &sCommand, qspi_impl::TIMEOUT);
+                        result = pq->qspi_command (pq->hqspi_, &sCommand,
+                                                   qspi_impl::TIMEOUT);
                         if (result == qspi_impl::ok)
                           {
                             // Compute and set number of dummy cycles

@@ -1,7 +1,7 @@
 /*
  * qspi-micron.cpp
  *
- * Copyright (c) 2016-2020 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2016-2021 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -70,15 +70,14 @@ namespace os
 
         // Enable volatile write
         sCommand.Instruction = qspi_impl::WRITE_ENABLE;
-        result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (
-            pq->hqspi_, &sCommand, qspi_impl::TIMEOUT);
+        result = pq->qspi_command (pq->hqspi_, &sCommand, qspi_impl::TIMEOUT);
         if (result == qspi_impl::ok)
           {
             // Write enhanced volatile register
             sCommand.DataMode = QSPI_DATA_1_LINE;
             sCommand.Instruction = WRITE_VOLATILE_STATUS_REGISTER;
-            result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (
-                pq->hqspi_, &sCommand, qspi_impl::TIMEOUT);
+            result = pq->qspi_command (pq->hqspi_, &sCommand,
+                                       qspi_impl::TIMEOUT);
             if (result == qspi_impl::ok)
               {
                 // Compute dummy cycles
@@ -91,16 +90,16 @@ namespace os
                     // Enable write
                     sCommand.DataMode = QSPI_DATA_NONE;
                     sCommand.Instruction = qspi_impl::WRITE_ENABLE;
-                    result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (
-                        pq->hqspi_, &sCommand, qspi_impl::TIMEOUT);
+                    result = pq->qspi_command (pq->hqspi_, &sCommand,
+                                               qspi_impl::TIMEOUT);
                     if (result == qspi_impl::ok)
                       {
                         // Set number of dummy cycles
                         sCommand.DataMode = QSPI_DATA_1_LINE;
                         sCommand.Instruction =
                             WRITE_ENH_VOLATILE_STATUS_REGISTER;
-                        result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (
-                            pq->hqspi_, &sCommand, qspi_impl::TIMEOUT);
+                        result = pq->qspi_command (pq->hqspi_, &sCommand,
+                                                   qspi_impl::TIMEOUT);
                         if (result == qspi_impl::ok)
                           {
                             datareg = 0x6F;	// Enable quad protocol
@@ -111,10 +110,9 @@ namespace os
                               {
                                 sCommand.DataMode = QSPI_DATA_NONE;
                                 sCommand.Instruction = ENTER_QUAD_MODE;
-                                result =
-                                    (qspi_impl::qspi_result_t) HAL_QSPI_Command (
-                                        pq->hqspi_, &sCommand,
-                                        qspi_impl::TIMEOUT);
+                                result = pq->qspi_command (pq->hqspi_,
+                                                           &sCommand,
+                                                           qspi_impl::TIMEOUT);
                               }
                           }
                       }
