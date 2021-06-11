@@ -155,7 +155,7 @@ namespace os
 
         qspi_result_t
         qspi_command (QSPI_HandleTypeDef* hq, QSPI_CommandTypeDef* cmd,
-                          uint32_t timeout);
+                      uint32_t timeout);
 
         // Standard command sub-set (common for all flash chips)
         static constexpr uint8_t JEDEC_ID = 0x9F;
@@ -216,7 +216,7 @@ namespace os
 
         static constexpr uint8_t VERSION_MAJOR = 2;
         static constexpr uint8_t VERSION_MINOR = 2;
-        static constexpr uint8_t VERSION_PATCH = 2;
+        static constexpr uint8_t VERSION_PATCH = 3;
 
         class qspi_intern* pimpl = nullptr;
         uint8_t manufacturer_ID_ = 0;
@@ -291,17 +291,26 @@ namespace os
       inline void
       qspi_impl::invalidate_dcache (uint8_t* ptr, size_t len)
       {
-        uint32_t* aligned_buff = (uint32_t*) (((uint32_t) ptr) & 0xFFFFFFE0);
-        uint32_t aligned_count = (uint32_t) (len & 0xFFFFFFE0) + 32;
-        SCB_CleanInvalidateDCache_by_Addr (aligned_buff, aligned_count);
+        if (SCB->CCR & (uint32_t) SCB_CCR_DC_Msk)
+          {
+            // D-cache is enabled
+            uint32_t* aligned_buff = (uint32_t*) (((uint32_t) ptr) & 0xFFFFFFE0);
+            uint32_t aligned_count = (uint32_t) (len & 0xFFFFFFE0) + 32;
+            SCB_CleanInvalidateDCache_by_Addr (aligned_buff, aligned_count);
+          }
       }
 
       inline void
       qspi_impl::clean_dcache (uint8_t* ptr, size_t len)
       {
-        uint32_t* aligned_buff = (uint32_t*) (((uint32_t) (ptr)) & 0xFFFFFFE0);
-        uint32_t aligned_count = (uint32_t) (len & 0xFFFFFFE0) + 32;
-        SCB_CleanDCache_by_Addr (aligned_buff, aligned_count);
+        if (SCB->CCR & (uint32_t) SCB_CCR_DC_Msk)
+          {
+            // D-cache is enabled
+            uint32_t* aligned_buff = (uint32_t*) (((uint32_t) (ptr))
+                & 0xFFFFFFE0);
+            uint32_t aligned_count = (uint32_t) (len & 0xFFFFFFE0) + 32;
+            SCB_CleanDCache_by_Addr (aligned_buff, aligned_count);
+          }
       }
 
     } /* namespace stm32f7 */
