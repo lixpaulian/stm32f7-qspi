@@ -130,7 +130,7 @@ namespace os
        * @param buf: buffer where the data will be returned.
        * @param blknum: the block number.
        * @param nblocks: number of blocks to read.
-       * @return Number of blocks read.
+       * @return Number of blocks read or -1 if error.
        */
       ssize_t
       qspi_impl::do_read_block (void* buf, posix::block_device::blknum_t blknum,
@@ -142,8 +142,10 @@ namespace os
 
         if (qspi_impl::read (address, (uint8_t*) buf, count) != ok)
           {
-            nblocks = 0;
+            errno = EIO;
+            nblocks = -1;
           }
+
         return nblocks;
       }
 
@@ -152,7 +154,7 @@ namespace os
        * @param buf: buffer with the data to be written.
        * @param blknum: the block number.
        * @param nblocks: number of blocks to be written.
-       * @return Number of blocks written.
+       * @return Number of blocks written or -1 if error.
        */
       ssize_t
       qspi_impl::do_write_block (const void* buf,
@@ -197,6 +199,8 @@ namespace os
                 if (qspi_impl::read (address + (sector_256 * sizeof(lbuff_)),
                                      lbuff_, sizeof(lbuff_)) != ok)
                   {
+                    errno = EIO;
+                    nblocks = -1;
                     break;  // read error, exit
                   }
 
@@ -227,7 +231,8 @@ namespace os
                         (uint8_t*) buf + (sector_256 * sizeof(lbuff_)),
                         sizeof(lbuff_)) != ok)
                       {
-                        nblocks = 0;
+                        errno = EIO;
+                        nblocks = -1;
                         break;
                       }
                   }
@@ -235,7 +240,7 @@ namespace os
               }
             while (p < ((uint8_t*) buf + count));
 
-            if (to_erase == true && nblocks)
+            if (to_erase == true && nblocks > 0)
               {
                 // write without erase did not work
                 // so erase first the blocks to be written
@@ -246,10 +251,12 @@ namespace os
 
                 if (qspi_impl::write (address, (uint8_t*) buf, count) != ok)
                   {
-                    nblocks = 0;
+                    errno = EIO;
+                    nblocks = -1;
                   }
               }
           }
+
         return nblocks;
       }
 
@@ -257,7 +264,7 @@ namespace os
        * @brief Control the device parameters.
        * @param request: command to the device.
        * @param args: command's parameter(s).
-       * @return 0 if successfull, -1 otherwise.
+       * @return 0 if successful, -1 otherwise.
        */
       int
       qspi_impl::do_vioctl (int request, std::va_list args)
@@ -276,7 +283,7 @@ namespace os
 
       /**
        * @brief Close the block device.
-       * @return 0 if successfull, -1 otherwise.
+       * @return 0 if successful, -1 otherwise.
        */
       int
       qspi_impl::do_close (void)
@@ -404,6 +411,7 @@ namespace os
                   }
               }
           }
+
         return result;
       }
 
@@ -468,6 +476,7 @@ namespace os
             result = (qspi_impl::qspi_result_t) HAL_QSPI_MemoryMapped (
                 hqspi_, &sCommand, &sMemMappedCfg);
           }
+
         return result;
       }
 
@@ -525,6 +534,7 @@ namespace os
                   }
               }
           }
+
         return result;
       }
 
@@ -564,6 +574,7 @@ namespace os
               }
             while (count > 0);
           }
+
         return result;
       }
 
@@ -647,6 +658,7 @@ namespace os
                   }
               }
           }
+
         return result;
       }
 
@@ -716,6 +728,7 @@ namespace os
                   }
               }
           }
+
         return result;
       }
 
@@ -786,6 +799,7 @@ namespace os
             sCommand.Instruction = RESET_DEVICE;
             result = qspi_command (hqspi_, &sCommand, TIMEOUT);
           }
+
         return result;
       }
 
@@ -810,6 +824,7 @@ namespace os
             result = (qspi_impl::qspi_result_t) HAL_QSPI_Command (hq, cmd,
                                                                   timeout);
           }
+
         return result;
       }
 
@@ -849,6 +864,7 @@ namespace os
             size = (1 << size);
             return size / pdevice_->sector_size;
           }
+
         return size;
       }
 
