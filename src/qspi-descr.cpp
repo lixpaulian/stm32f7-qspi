@@ -53,21 +53,12 @@ namespace os
       // Winbond devices; accepted dummy cycles can be either 2, 4, 6 or 8
       const qspi_device_t winbond_devices[] =
         {
-          { 0x4016, 4096, "W25Q32FV", 0xF, QSPI_ALTERNATE_BYTES_4_LINES,
-          QSPI_ALTERNATE_BYTES_8_BITS, 6, 2, false },
-
           { 0x6016, 4096, "W25Q32FV", 0xF, QSPI_ALTERNATE_BYTES_4_LINES,
-          QSPI_ALTERNATE_BYTES_8_BITS, 6, 2, false },
-
-          { 0x4017, 4096, "W25Q64FV", 0xF, QSPI_ALTERNATE_BYTES_4_LINES,
           QSPI_ALTERNATE_BYTES_8_BITS, 6, 2, false },
 
           { 0x6017, 4096, "W25Q64FV", 0xF, QSPI_ALTERNATE_BYTES_4_LINES,
           QSPI_ALTERNATE_BYTES_8_BITS, 6, 2, false },
-
-          { 0x4018, 4096, "W25Q128FV", 0xF, QSPI_ALTERNATE_BYTES_4_LINES,
-          QSPI_ALTERNATE_BYTES_8_BITS, 6, 2, false },
-
+            
           { 0x6018, 4096, "W25Q128FV", 0xF, QSPI_ALTERNATE_BYTES_4_LINES,
           QSPI_ALTERNATE_BYTES_8_BITS, 6, 2, false },
 
@@ -103,4 +94,3 @@ namespace os
     } /* namespace stm32f7 */
   } /* namespace driver */
 } /* namespace os */
-
