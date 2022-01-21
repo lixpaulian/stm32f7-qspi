@@ -52,7 +52,7 @@
 
 extern "C"
 {
-  QSPI_HandleTypeDef hqspi;
+  extern QSPI_HandleTypeDef hqspi;
 }
 
 using namespace os;
