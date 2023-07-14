@@ -8,5 +8,6 @@
 	},
 	"license": "MIT",
 	"xpack": {
+		"minimumXpmRequired": "0.16.2"
 	}
 }
