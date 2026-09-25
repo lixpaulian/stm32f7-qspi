@@ -1,7 +1,7 @@
 /*
  * qspi-flash.h
  *
- * Copyright (c) 2016-2021 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2016-2026 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -216,7 +216,7 @@ namespace os
 
         static constexpr uint8_t VERSION_MAJOR = 2;
         static constexpr uint8_t VERSION_MINOR = 2;
-        static constexpr uint8_t VERSION_PATCH = 4;
+        static constexpr uint8_t VERSION_PATCH = 5;
 
         class qspi_intern* pimpl = nullptr;
         uint8_t manufacturer_ID_ = 0;
