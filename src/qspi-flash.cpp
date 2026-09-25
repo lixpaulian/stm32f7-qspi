@@ -1,7 +1,7 @@
 /*
  * qspi-flash.cpp
  *
- * Copyright (c) 2016-2021 Lix N. Paulian (lix@paulian.net)
+ * Copyright (c) 2016-2026 Lix N. Paulian (lix@paulian.net)
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
