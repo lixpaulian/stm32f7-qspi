@@ -293,10 +293,11 @@ namespace os
       {
         if (SCB->CCR & (uint32_t) SCB_CCR_DC_Msk)
           {
-            // D-cache is enabled
-            uint32_t* aligned_buff = (uint32_t*) (((uint32_t) ptr) & 0xFFFFFFE0);
-            uint32_t aligned_count = (uint32_t) (len & 0xFFFFFFE0) + 32;
-            SCB_CleanInvalidateDCache_by_Addr (aligned_buff, aligned_count);
+            // D-cache is enabled; round to cache line boundaries (32 bytes),
+            // accounting for ptr's own misalignment, not just len.
+            uint32_t start = ((uint32_t) ptr) & 0xFFFFFFE0;
+            uint32_t end = (((uint32_t) ptr) + len + 0x1F) & 0xFFFFFFE0;
+            SCB_CleanInvalidateDCache_by_Addr ((uint32_t*) start, end - start);
           }
       }
 
@@ -305,11 +306,11 @@ namespace os
       {
         if (SCB->CCR & (uint32_t) SCB_CCR_DC_Msk)
           {
-            // D-cache is enabled
-            uint32_t* aligned_buff = (uint32_t*) (((uint32_t) (ptr))
-                & 0xFFFFFFE0);
-            uint32_t aligned_count = (uint32_t) (len & 0xFFFFFFE0) + 32;
-            SCB_CleanDCache_by_Addr (aligned_buff, aligned_count);
+            // D-cache is enabled; round to cache line boundaries (32 bytes),
+            // accounting for ptr's own misalignment, not just len.
+            uint32_t start = ((uint32_t) ptr) & 0xFFFFFFE0;
+            uint32_t end = (((uint32_t) ptr) + len + 0x1F) & 0xFFFFFFE0;
+            SCB_CleanDCache_by_Addr ((uint32_t*) start, end - start);
           }
       }
 
